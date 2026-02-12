@@ -1,0 +1,63 @@
+Yield_Dining_Inventory_Snapshot table:
+
+Snapshot_TS_UTC           Venue_ID              Venue_Type         Capacity_Seats  Occupied_Seats  Available_Seats  Walkin_Queue_Size  Source_System
+2026-01-12T11:14:00Z      BISTRO_SUR_LA_MER     specialty_dining   36              22              14               0                  pms_dining_inventory
+2026-01-12T11:14:00Z      BISTRO_SUR_LA_MER     specialty_dining   36              29              7                1                  pms_dining_inventory
+2026-01-12T11:15:00Z      CROWN_GRILL           specialty_dining   48              26              22               0                  pms_dining_inventory
+2026-01-12T11:18:00Z      BISTRO_SUR_LA_MER     specialty_dining   36              25              11               1                  pms_dining_inventory
+2026-01-12T11:20:00Z      SABATINIS             specialty_dining   44              31              13               0                  pms_dining_inventory
+2026-01-12T11:21:00Z      CROWN_GRILL           specialty_dining   48              39              9                0                  pms_dining_inventory
+2026-01-12T11:21:00Z      CROWN_GRILL           specialty_dining   48              26              22               0                  pms_dining_inventory
+2026-01-12T11:21:00Z      SABATINIS             specialty_dining   44              30              14               1                  pms_dining_inventory
+2026-01-12T11:22:00Z      CROWN_GRILL           specialty_dining   48              21              27               0                  pms_dining_inventory
+2026-01-12T11:22:00Z      CROWN_GRILL           specialty_dining   48              36              12               0                  pms_dining_inventory
+
+--------------------------------------------------
+
+Yield_Guest_Presence_Log table:
+
+Event_TS_UTC              Guest_ID    Location_ID         Zone_Type   Party_Size  Dwell_Seconds  Signal_Confidence  Source_System
+2026-01-12T11:09:00Z      G0144       DECK15_JACUZZI      pool        3           1020           0.967              rtls_engine_v2
+2026-01-12T11:13:00Z      G0035       DECK15_POOL_A       pool        2           960            0.930              rtls_engine_v2
+2026-01-12T11:14:00Z      G0248       DECK16_SUNDECK      pool        4           660            0.990              rtls_engine_v2
+2026-01-12T11:16:00Z      G0174       PROMENADE_AFT       promenade   4           1080           0.867              rtls_engine_v2
+2026-01-12T11:16:00Z      G0049       PROMENADE_AFT       promenade   3           1500           0.956              rtls_engine_v2
+2026-01-12T11:16:00Z      G0043       DECK15_POOL_A       pool        1           2760           0.951              rtls_engine_v2
+2026-01-12T11:17:00Z      G0206       PROMENADE_AFT       promenade   1           900            0.819              rtls_engine_v2
+2026-01-12T11:18:00Z      G0161       PROMENADE_AFT       promenade   2           1920           0.960              rtls_engine_v2
+2026-01-12T11:20:00Z      G0151       DECK15_POOL_A       pool        2           1500           0.974              rtls_engine_v2
+2026-01-12T11:20:00Z      G0139       DECK15_POOL_A       pool        2           1500           0.886              rtls_engine_v2
+
+--------------------------------------------------
+
+Yield_Micro_Offer_Events table:
+
+Offer_TS_UTC              Offer_ID      Guest_ID  Party_Size  Target_Zone       Venue_ID              Discount_Pct  State       Redeemed_TS_UTC           Estimated_Revenue_USD  Source_System
+2026-01-12T16:30:00Z      OFDZUJI07M    G0126     4           DECK16_SUNDECK    BISTRO_SUR_LA_MER     20            redeemed    2026-01-12T17:14:00Z      165.02                 offer_orchestration_service
+2026-01-12T16:30:00Z      OFDAYBR6WL    G0044     2           PROMENADE_AFT     SABATINIS             10            presented                             0.00                   offer_orchestration_service
+2026-01-12T16:30:00Z      OFI0LIN0YG    G0052     2           DECK16_SUNDECK    CROWN_GRILL           15            redeemed    2026-01-12T17:45:00Z      82.74                  offer_orchestration_service
+2026-01-12T16:30:00Z      OFN1XS39TL    G0129     2           DECK16_SUNDECK    SABATINIS             20            expired                               0.00                   offer_orchestration_service
+2026-01-12T16:30:00Z      OF2FQ077TZ    G0180     2           DECK15_POOL_A     SABATINIS             25            expired                               0.00                   offer_orchestration_service
+2026-01-12T16:30:00Z      OF2V50D1ZB    G0114     2           DECK15_JACUZZI    BISTRO_SUR_LA_MER     15            expired                               0.00                   offer_orchestration_service
+2026-01-12T16:30:00Z      OFUS3KC7HV    G0191     2           DECK16_SUNDECK    CROWN_GRILL           25            redeemed    2026-01-12T17:25:00Z      88.72                  offer_orchestration_service
+2026-01-12T16:30:00Z      OFRNPM4NDJ    G0162     2           DECK15_JACUZZI    CROWN_GRILL           10            redeemed    2026-01-12T17:35:00Z      72.14                  offer_orchestration_service
+2026-01-12T16:30:00Z      OF9PZHJROK    G0212     2           DECK16_SUNDECK    BISTRO_SUR_LA_MER     10            expired                               0.00                   offer_orchestration_service
+2026-01-12T16:30:00Z      OF9S874PPG    G0131     2           DECK15_JACUZZI    SABATINIS             15            redeemed    2026-01-12T17:35:00Z      53.66                  offer_orchestration_service
+
+--------------------------------------------------
+
+Gold_Yield_Hunter_KPIs table:
+
+Venue_ID              Hour                        Seats  Occupied    Available   Occ_Rate  Low_Occupancy_Flag  Accepted  Expired  Presented  Redeemed  Accept_Rate  Redeem_Rate  Revenue_USD  Seats_Filled_Via_Offers
+BISTRO_SUR_LA_MER     2026-01-12 11:00:00+00:00   36     25.507042   10.492958   0.708529  0                   0         0        0          0         0.000000     0.000000     0.00         0
+BISTRO_SUR_LA_MER     2026-01-12 12:00:00+00:00   36     23.558140   12.441860   0.654393  0                   0         0        0          0         0.000000     0.000000     0.00         0
+BISTRO_SUR_LA_MER     2026-01-12 13:00:00+00:00   36     24.000000   12.000000   0.666667  0                   0         0        0          0         0.000000     0.000000     0.00         0
+BISTRO_SUR_LA_MER     2026-01-12 16:00:00+00:00   36     12.103448   23.896552   0.336207  1                   16        35       32         63        0.500000     1.968750     5381.56      149
+BISTRO_SUR_LA_MER     2026-01-12 17:00:00+00:00   36     12.807692   23.192308   0.355769  1                   2         0        9          12        0.222222     1.333333     1043.72      29
+BISTRO_SUR_LA_MER     2026-01-12 21:00:00+00:00   36     12.682692   23.317308   0.352297  1                   10        40       37         86        0.270270     2.324324     7859.50      223
+BISTRO_SUR_LA_MER     2026-01-12 22:00:00+00:00   36     28.000000   8.000000    0.777778  0                   0         0        0          1         0.000000     0.000000     119.56       4
+CROWN_GRILL           2026-01-12 11:00:00+00:00   48     33.142857   14.857143   0.690476  0                   0         0        0          0         0.000000     0.000000     0.00         0
+CROWN_GRILL           2026-01-12 12:00:00+00:00   48     31.521739   16.478261   0.656703  0                   0         0        0          0         0.000000     0.000000     0.00         0
+CROWN_GRILL           2026-01-12 13:00:00+00:00   48     35.500000   12.500000   0.739583  0                   0         0        0          0         0.000000     0.000000     0.00         0
+
+--------------------------------------------------

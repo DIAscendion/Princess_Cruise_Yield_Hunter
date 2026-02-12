@@ -1,0 +1,56 @@
+Yield Management Application Data Model
+
+The tables in the Yield Management application include following:
+Yield_Dining_Inventory_Snapshot, Yield_Guest_Presence_Log, Yield_Micro_Offer_Events, Gold_Yield_Hunter_KPIs
+
+Below tables list the attributes of each table along with the data type, constraints and the domain values
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Table Name                        | Column Name             | Business Description                                           | Data Type     | Constraints          | Domain Values
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Yield_Dining_Inventory_Snapshot   | Snapshot_TS_UTC         | Timestamp of the inventory snapshot in UTC                     | DATETIME       | Not Null             | N/A
+                                  | Venue_ID                | Unique identifier for the dining venue                         | VARCHAR(50)    | Not Null             | BISTRO_SUR_LA_MER, CROWN_GRILL, SABATINIS
+                                  | Venue_Type              | Type/category of the dining venue                              | VARCHAR(50)    | Not Null             | specialty_dining
+                                  | Capacity_Seats          | Total seating capacity of the venue                            | INT            | Not Null             | N/A
+                                  | Occupied_Seats          | Number of seats currently occupied                             | INT            | Not Null             | N/A
+                                  | Available_Seats         | Number of seats currently available                            | INT            | Not Null             | N/A
+                                  | Walkin_Queue_Size       | Number of guests waiting in walk-in queue                      | INT            | Not Null             | N/A
+                                  | Source_System           | System that generated this inventory snapshot                  | VARCHAR(100)   | Not Null             | pms_dining_inventory
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Yield_Guest_Presence_Log          | Event_TS_UTC            | Timestamp when guest presence was detected in UTC              | DATETIME       | Not Null             | N/A
+                                  | Guest_ID                | Unique identifier for the guest                                | VARCHAR(20)    | Not Null             | N/A
+                                  | Location_ID             | Identifier for the location where guest was detected           | VARCHAR(50)    | Not Null             | DECK15_JACUZZI, DECK15_POOL_A, DECK16_SUNDECK, PROMENADE_AFT
+                                  | Zone_Type               | Type of zone where guest was located                           | VARCHAR(50)    | Not Null             | pool, promenade
+                                  | Party_Size              | Number of people in the guest's party                          | INT            | Not Null             | N/A
+                                  | Dwell_Seconds           | Duration guest remained in the location (in seconds)           | INT            | Not Null             | N/A
+                                  | Signal_Confidence       | Confidence level of location detection signal (0-1)            | DECIMAL(5,3)   | Not Null             | 0.0 to 1.0
+                                  | Source_System           | System that tracked the guest presence                         | VARCHAR(100)   | Not Null             | rtls_engine_v2
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Yield_Micro_Offer_Events          | Offer_TS_UTC            | Timestamp when offer was generated in UTC                      | DATETIME       | Not Null             | N/A
+                                  | Offer_ID                | Unique identifier for the offer                                | VARCHAR(20)    | Primary Key, Not Null| N/A
+                                  | Guest_ID                | Unique identifier for the guest receiving the offer            | VARCHAR(20)    | Not Null             | N/A
+                                  | Party_Size              | Size of the guest's dining party                               | INT            | Not Null             | N/A
+                                  | Target_Zone             | Location zone where guest was when offer was made              | VARCHAR(50)    | Not Null             | DECK15_JACUZZI, DECK15_POOL_A, DECK16_SUNDECK, PROMENADE_AFT
+                                  | Venue_ID                | Dining venue for which the offer was made                      | VARCHAR(50)    | Not Null             | BISTRO_SUR_LA_MER, CROWN_GRILL, SABATINIS
+                                  | Discount_Pct            | Percentage discount offered                                    | INT            | Not Null             | 10, 15, 20, 25
+                                  | State                   | Current state of the offer                                     | VARCHAR(20)    | Not Null             | redeemed, expired, presented
+                                  | Redeemed_TS_UTC         | Timestamp when offer was redeemed (NULL if not redeemed)       | DATETIME       | Nullable             | N/A
+                                  | Estimated_Revenue_USD   | Estimated revenue from this offer in USD                       | DECIMAL(10,2)  | Not Null             | N/A
+                                  | Source_System           | System that orchestrated the offer                             | VARCHAR(100)   | Not Null             | offer_orchestration_service
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Gold_Yield_Hunter_KPIs            | Venue_ID                | Unique identifier for the dining venue                         | VARCHAR(50)    | Not Null             | BISTRO_SUR_LA_MER, CROWN_GRILL, SABATINIS
+                                  | Hour                    | Hour timestamp for the aggregated metrics                      | DATETIME       | Not Null             | N/A
+                                  | Seats                   | Total seat capacity for the venue                              | INT            | Not Null             | N/A
+                                  | Occupied                | Average number of occupied seats during the hour               | DECIMAL(10,6)  | Not Null             | N/A
+                                  | Available               | Average number of available seats during the hour              | DECIMAL(10,6)  | Not Null             | N/A
+                                  | Occ_Rate                | Occupancy rate (occupied/seats) for the hour                   | DECIMAL(10,6)  | Not Null             | 0.0 to 1.0
+                                  | Low_Occupancy_Flag      | Flag indicating if occupancy was below threshold               | INT            | Not Null             | 0 (false), 1 (true)
+                                  | Accepted                | Number of offers accepted during the hour                      | INT            | Not Null             | N/A
+                                  | Expired                 | Number of offers that expired during the hour                  | INT            | Not Null             | N/A
+                                  | Presented               | Number of offers presented during the hour                     | INT            | Not Null             | N/A
+                                  | Redeemed                | Number of offers redeemed during the hour                      | INT            | Not Null             | N/A
+                                  | Accept_Rate             | Acceptance rate (accepted/presented) for the hour              | DECIMAL(10,6)  | Not Null             | 0.0 to 1.0
+                                  | Redeem_Rate             | Redemption rate for the hour                                   | DECIMAL(10,6)  | Not Null             | N/A
+                                  | Revenue_USD             | Total revenue generated during the hour in USD                 | DECIMAL(10,2)  | Not Null             | N/A
+                                  | Seats_Filled_Via_Offers | Number of seats filled through offer redemptions               | INT            | Not Null             | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
