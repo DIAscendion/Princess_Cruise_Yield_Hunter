@@ -1,0 +1,322 @@
+# Yield Hunter - Data Source to Report Mapping
+# Shows how operational tables (op_*) feed into Gold KPIs and reporting requirements
+
+================================================================================
+OPERATIONAL DATA SOURCES (Bronze/Silver Layer)
+================================================================================
+
+1. op_guest_presence_log
+   - Source System: RTLS / Medallion readers
+   - Grain: One presence ping per guest at zone/time
+   - Update Frequency: Real-time (seconds)
+   - Key Fields: event_ts_utc, guest_id, location_id, zone_type, dwell_seconds
+
+2. op_dining_inventory_snapshot
+   - Source System: PMS/Dining system
+   - Grain: One availability snapshot per venue/time
+   - Update Frequency: Every 5-15 minutes
+   - Key Fields: snapshot_ts_utc, venue_id, capacity_seats, occupied_seats, available_seats
+
+3. op_micro_offer_events
+   - Source System: Offer orchestration service
+   - Grain: One offer lifecycle event (state machine)
+   - Update Frequency: Real-time (event-driven)
+   - Key Fields: offer_ts_utc, offer_id, guest_id, state, estimated_revenue_usd
+
+================================================================================
+GOLD LAYER KPI TABLE
+================================================================================
+
+Table: gold_yield_hunter_kpis
+Grain: hour × venue_id
+Refresh: Hourly batch aggregation
+
+Columns:
+  - hour_utc (timestamp)
+  - venue_id (string)
+  - occ_rate (decimal) - from op_dining_inventory_snapshot
+  - low_occupancy_flag (boolean) - derived (occ_rate < 0.45)
+  - presented (int) - from op_micro_offer_events WHERE state='presented'
+  - accepted (int) - from op_micro_offer_events WHERE state='accepted'
+  - redeemed (int) - from op_micro_offer_events WHERE state='redeemed'
+  - expired (int) - from op_micro_offer_events WHERE state='expired'
+  - accept_rate (decimal) - accepted / presented
+  - redeem_rate (decimal) - redeemed / presented
+  - revenue_usd (decimal) - SUM(estimated_revenue_usd) WHERE state='redeemed'
+  - seats_filled_via_offers (int) - SUM(party_size) WHERE state='redeemed'
+
+================================================================================
+REPORT-TO-DATA MAPPING
+================================================================================
+
+REPORT: Venue_Occupancy_Overview
+├─ PRIMARY SOURCE: op_dining_inventory_snapshot
+├─ AGGREGATION: 
+│  ├─ AVG(occupied_seats/capacity_seats) AS occupancy_rate
+│  ├─ AVG(available_seats) AS avg_available_seats
+│  └─ CASE WHEN occupancy_rate < 0.45 THEN 1 ELSE 0 END AS low_occupancy_flag
+├─ DIMENSIONS: venue_id, HOUR(snapshot_ts_utc), DAYOFWEEK(snapshot_ts_utc)
+└─ GOLD TABLE: gold_yield_hunter_kpis (direct mapping)
+
+---
+
+REPORT: Micro_Offer_Conversion_Funnel
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ AGGREGATION:
+│  ├─ COUNT(DISTINCT offer_id) WHERE state='presented' AS presented_count
+│  ├─ COUNT(DISTINCT offer_id) WHERE state='accepted' AS accepted_count
+│  ├─ COUNT(DISTINCT offer_id) WHERE state='redeemed' AS redeemed_count
+│  ├─ COUNT(DISTINCT offer_id) WHERE state='expired' AS expired_count
+│  └─ accepted_count / presented_count AS accept_rate
+├─ DIMENSIONS: venue_id, discount_pct, party_size, DATE(offer_ts_utc)
+└─ GOLD TABLE: gold_yield_hunter_kpis (aggregated metrics)
+
+---
+
+REPORT: Guest_Presence_Heatmap
+├─ PRIMARY SOURCE: op_guest_presence_log
+├─ AGGREGATION:
+│  ├─ AVG(dwell_seconds) AS avg_dwell_seconds
+│  ├─ COUNT(DISTINCT guest_id) AS unique_guests
+│  ├─ COUNT(*) AS total_pings
+│  └─ COUNT(*) / COUNT(DISTINCT guest_id) AS avg_pings_per_guest
+├─ DIMENSIONS: zone_type, location_id, HOUR(event_ts_utc), DAYOFWEEK(event_ts_utc)
+└─ GOLD TABLE: Requires separate aggregation (zone-level, not in gold_yield_hunter_kpis)
+
+---
+
+REPORT: Revenue_Attribution_Dashboard
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ JOIN: op_dining_inventory_snapshot (for venue context)
+├─ AGGREGATION:
+│  ├─ SUM(estimated_revenue_usd) WHERE state='redeemed' AS total_revenue
+│  ├─ AVG(estimated_revenue_usd) WHERE state='redeemed' AS avg_revenue_per_redemption
+│  ├─ SUM(party_size) WHERE state='redeemed' AS incremental_seats_filled
+│  └─ GROUP BY venue_id, discount_pct
+├─ DIMENSIONS: venue_id, discount_pct, offer_type, DATE(offer_ts_utc)
+└─ GOLD TABLE: gold_yield_hunter_kpis.revenue_usd, seats_filled_via_offers
+
+---
+
+REPORT: Offer_Performance_Analysis
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ DERIVED METRICS:
+│  ├─ (accepted / presented) GROUP BY discount_pct AS conversion_by_discount
+│  ├─ (accepted / presented) GROUP BY party_size AS conversion_by_party_size
+│  ├─ AVG(TIMESTAMPDIFF(SECOND, offer_ts_utc, redeemed_ts_utc)) AS time_to_acceptance
+│  └─ Offer TTL effectiveness (redeemed within TTL window)
+├─ DIMENSIONS: discount_pct, party_size, target_zone, venue_id
+└─ GOLD TABLE: Partial (needs detailed drill-down beyond hourly aggregation)
+
+---
+
+REPORT: Low_Occupancy_Alert_Report
+├─ PRIMARY SOURCE: op_dining_inventory_snapshot
+├─ JOIN: op_micro_offer_events (to see offers fired)
+├─ FILTER: WHERE (occupied_seats/capacity_seats) < 0.45
+├─ AGGREGATION:
+│  ├─ Current occupancy_rate
+│  ├─ available_seats
+│  ├─ COUNT offers presented/accepted in last hour
+│  └─ CASE WHEN presented = 0 AND low_occ THEN 1 ELSE 0 END AS missed_opportunity
+├─ DIMENSIONS: venue_id, time_window (15-min buckets), day_part (breakfast/lunch/dinner)
+└─ GOLD TABLE: gold_yield_hunter_kpis.low_occupancy_flag + live inventory feed
+
+---
+
+REPORT: Guest_Journey_Tracking
+├─ PRIMARY SOURCE: op_guest_presence_log
+├─ JOIN: op_micro_offer_events (to track conversion)
+├─ WINDOW FUNCTION:
+│  ├─ LEAD(location_id) OVER (PARTITION BY guest_id ORDER BY event_ts_utc) AS next_location
+│  ├─ TIMESTAMPDIFF(MINUTE, event_ts_utc, next_event_ts) AS journey_duration
+│  └─ CASE WHEN next_location IN (SELECT venue_id FROM op_micro_offer_events) THEN 1 ELSE 0 END
+├─ DIMENSIONS: zone_type (origin), venue_id (destination), guest_segment
+└─ GOLD TABLE: Not in gold_yield_hunter_kpis (requires detailed event sequencing)
+
+---
+
+REPORT: Inventory_Perishability_Dashboard
+├─ PRIMARY SOURCE: op_dining_inventory_snapshot
+├─ DERIVED METRICS:
+│  ├─ Minutes until next service period (based on venue schedule)
+│  ├─ SUM(available_seats * minutes_remaining) AS unused_capacity_hours
+│  ├─ (total_covers / total_service_hours) AS table_turnover_rate
+│  └─ (revenue_usd / (capacity_seats * service_hours)) AS RevPASH
+├─ DIMENSIONS: venue_id, service_period (breakfast/lunch/dinner), day_of_week
+└─ GOLD TABLE: Requires time-based calculations beyond gold_yield_hunter_kpis
+
+---
+
+REPORT: A_B_Test_Performance_Report
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ JOIN: Guest assignment to control/test group (separate table needed)
+├─ AGGREGATION:
+│  ├─ SUM(revenue) WHERE group='control' AS control_revenue
+│  ├─ SUM(revenue) WHERE group='test' AS test_revenue
+│  ├─ (test_revenue - control_revenue) AS incremental_revenue
+│  └─ Statistical significance test (t-test, chi-square)
+├─ DIMENSIONS: test_variant, offer_strategy, guest_segment
+└─ GOLD TABLE: Requires A/B metadata (not in current gold schema)
+
+---
+
+REPORT: Discount_Optimization_Analysis
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ DERIVED METRICS:
+│  ├─ (redeemed / presented) AS redemption_rate
+│  ├─ SUM(estimated_revenue_usd) AS gross_revenue
+│  ├─ SUM(estimated_revenue_usd * discount_pct) AS discount_cost
+│  ├─ (gross_revenue - discount_cost) / gross_revenue AS profit_margin
+│  └─ discount_cost / redeemed AS cost_per_acquisition
+├─ DIMENSIONS: discount_pct (tier: 10/15/20/25), party_size, venue_type
+└─ GOLD TABLE: Needs cost calculation layer (beyond gold_yield_hunter_kpis)
+
+---
+
+REPORT: Guest_Engagement_Metrics
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ WINDOW FUNCTION:
+│  ├─ COUNT(*) OVER (PARTITION BY guest_id ORDER BY offer_ts_utc) AS offer_sequence
+│  ├─ LAG(state) OVER (PARTITION BY guest_id ORDER BY offer_ts_utc) AS previous_response
+│  └─ Acceptance rate by offer_sequence (detect fatigue)
+├─ DIMENSIONS: guest_segment, cruise_day, previous_offer_count
+└─ GOLD TABLE: Requires guest-level history (not in venue-hour aggregation)
+
+---
+
+REPORT: Operational_Readiness_Dashboard
+├─ PRIMARY SOURCE: op_guest_presence_log
+├─ ADDITIONAL SOURCES: op_dining_inventory_snapshot, op_micro_offer_events
+├─ METRICS:
+│  ├─ AVG(signal_confidence) FROM op_guest_presence_log AS rtls_quality
+│  ├─ MAX(event_ts_utc) - CURRENT_TIMESTAMP AS data_latency
+│  ├─ COUNT(snapshot updates in last 15min) AS inventory_refresh_rate
+│  └─ (offers_delivered / offers_attempted) AS delivery_success_rate
+├─ DIMENSIONS: source_system, data_feed, time_period
+└─ GOLD TABLE: System metadata layer (separate from KPIs)
+
+---
+
+REPORT: Venue_Yield_Scorecard
+├─ PRIMARY SOURCE: op_micro_offer_events + op_dining_inventory_snapshot
+├─ DERIVED METRICS:
+│  ├─ Total covers (baseline + walk-ins + offers)
+│  ├─ Walk-in covers (from walkin_queue_size delta)
+│  ├─ Offer-driven covers (SUM(party_size) WHERE state='redeemed')
+│  ├─ Revenue per cover (total_revenue / total_covers)
+│  └─ Yield index = (actual_revenue / potential_revenue) * 100
+├─ DIMENSIONS: venue_id, service_type, DATE(time_period)
+└─ GOLD TABLE: gold_yield_hunter_kpis + baseline calculations
+
+---
+
+REPORT: Time_Window_Opportunity_Analysis
+├─ PRIMARY SOURCE: op_dining_inventory_snapshot + op_micro_offer_events
+├─ AGGREGATION:
+│  ├─ AVG(occupancy_rate) BY 30-minute time_window
+│  ├─ COUNT(offers_fired) BY time_window
+│  ├─ (accepted / presented) AS conversion_rate
+│  ├─ SUM(revenue_usd) BY time_window
+│  └─ Composite opportunity_score = f(low_occ, high_conversion, high_revenue)
+├─ DIMENSIONS: time_window (30-min buckets), day_of_week, venue_type
+└─ GOLD TABLE: gold_yield_hunter_kpis (aggregated to 30-min windows)
+
+---
+
+REPORT: Party_Size_Segmentation_Report
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ AGGREGATION:
+│  ├─ AVG(party_size) BY segment
+│  ├─ (accepted / presented) GROUP BY party_size AS acceptance_by_size
+│  ├─ SUM(revenue_usd) GROUP BY party_size
+│  └─ (seats_filled / total_available_seats) AS efficiency
+├─ DIMENSIONS: party_size (1/2/3-4/5+), venue_id, discount_tier
+└─ GOLD TABLE: Needs party_size dimension (added to gold aggregation)
+
+---
+
+REPORT: Queue_Displacement_Analysis
+├─ PRIMARY SOURCE: op_dining_inventory_snapshot
+├─ JOIN: op_micro_offer_events
+├─ DERIVED METRICS:
+│  ├─ AVG(walkin_queue_size)
+│  ├─ COUNT(offers_accepted) in same time window
+│  ├─ (queue_reduction / offers_accepted) AS displacement_rate
+│  └─ Estimated service_delay_minutes (queue * avg_service_time)
+├─ DIMENSIONS: venue_id, time_period, occupancy_level (low/medium/high)
+└─ GOLD TABLE: Requires queue tracking (not in gold_yield_hunter_kpis)
+
+---
+
+REPORT: RTLS_Coverage_Quality_Report
+├─ PRIMARY SOURCE: op_guest_presence_log
+├─ AGGREGATION:
+│  ├─ AVG(signal_confidence) BY zone
+│  ├─ COUNT(*) / COUNT(DISTINCT guest_id) AS avg_ping_frequency
+│  ├─ COUNT zones WITH signal_confidence < 0.7 AS dead_zone_count
+│  └─ Tracking error rate (missed expected pings)
+├─ DIMENSIONS: zone_type, location_id, sensor_id
+└─ GOLD TABLE: Separate data quality table (not in KPIs)
+
+---
+
+REPORT: Incremental_Revenue_Attribution
+├─ PRIMARY SOURCE: op_micro_offer_events
+├─ JOIN: Baseline revenue table (A/B test control or historical avg)
+├─ DERIVED METRICS:
+│  ├─ SUM(revenue) FROM baseline_period AS baseline_revenue
+│  ├─ SUM(revenue_usd) WHERE state='redeemed' AS with_offers_revenue
+│  ├─ (with_offers - baseline) AS incremental_revenue
+│  ├─ (redeemed_covers - baseline_covers) AS incremental_covers
+│  └─ (incremental_revenue / offer_cost) AS ROI_percentage
+├─ DIMENSIONS: venue_id, comparison_period, guest_segment
+└─ GOLD TABLE: Requires baseline comparison layer
+
+================================================================================
+ADDITIONAL TABLES NEEDED FOR COMPLETE REPORTING
+================================================================================
+
+1. dim_venue
+   - venue_id (PK)
+   - venue_name
+   - venue_type
+   - capacity_seats
+   - service_periods (array: breakfast/lunch/dinner times)
+   - cost_per_cover_avg
+
+2. dim_guest_segment
+   - guest_id (PK)
+   - segment (loyalty_tier, spending_propensity, cruise_frequency)
+   - ab_test_group (control/test)
+   - opt_out_flag
+
+3. fact_baseline_revenue
+   - date
+   - venue_id
+   - service_period
+   - baseline_covers
+   - baseline_revenue_usd
+
+4. log_system_health
+   - timestamp
+   - source_system
+   - metric_name
+   - metric_value
+   - status
+
+================================================================================
+REFRESH CADENCE BY LAYER
+================================================================================
+
+BRONZE (Operational Sources):
+├─ op_guest_presence_log: Real-time (< 5 sec latency)
+├─ op_dining_inventory_snapshot: Every 5-15 minutes
+└─ op_micro_offer_events: Real-time (event-driven)
+
+GOLD (Aggregated KPIs):
+├─ gold_yield_hunter_kpis: Hourly batch (at :05 past each hour)
+├─ Real-time dashboard: Direct query on operational sources
+└─ Historical analysis: Daily/weekly batch jobs
+
+================================================================================
