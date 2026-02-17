@@ -1,0 +1,114 @@
+PMS – Dining Yield Management Data Model
+
+The tables in the PMS Dining Yield Management application include the following:
+guest_profile, dining_reservation, venue_master, seating_inventory_snapshot, pos_transaction,
+micro_offer, offer_response, offer_redemption, zone_master, guest_presence_event,
+guest_journey, venue_queue_snapshot, ab_test_assignment, baseline_revenue,
+rtls_signal_quality, offer_delivery_log
+
+Below tables list the attributes of each table along with the data type, constraints and the domain values
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+Table Name                     | Column Name          | Business Description                                              | Data Type     | Constraints           | Domain Values
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+guest_profile                  | guest_id             | Unique identifier for the guest                                   | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | loyalty_tier         | Guest loyalty programme tier                                      | VARCHAR(20)   | Nullable              | STANDARD, SILVER, GOLD, PLATINUM
+                               | age_group            | Bucketed age range of the guest                                   | VARCHAR(20)   | Nullable              | 18-24, 25-34, 35-44, 45-54, 55-64, 65+
+                               | home_country         | Guest's country of residence                                      | VARCHAR(50)   | Nullable              | N/A
+                               | opt_in_offers        | Whether guest has opted in to receive micro-offers                | BOOLEAN       | Not Null              | TRUE, FALSE
+                               | created_ts           | Timestamp when the guest profile was created                      | TIMESTAMP     | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+dining_reservation             | reservation_id       | Unique identifier for the dining reservation                      | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | guest_id             | Reference to the guest who made the reservation                   | VARCHAR(50)   | Not Null              | N/A
+                               | venue_id             | Reference to the dining venue                                     | VARCHAR(50)   | Not Null              | N/A
+                               | reservation_ts       | Timestamp of the reservation booking                              | TIMESTAMP     | Not Null              | N/A
+                               | party_size           | Number of covers in the reservation                               | INT           | Not Null              | N/A
+                               | service_period       | Meal service period for the reservation                           | VARCHAR(20)   | Not Null              | BREAKFAST, LUNCH, DINNER
+                               | reservation_status   | Current status of the reservation                                 | VARCHAR(20)   | Not Null              | CONFIRMED, CANCELLED, NO_SHOW, SEATED, COMPLETED
+                               | created_ts           | Timestamp when the reservation record was created                 | TIMESTAMP     | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+venue_master                   | venue_id             | Unique identifier for the dining venue                            | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | venue_name           | Display name of the dining venue                                  | VARCHAR(100)  | Not Null              | N/A
+                               | seating_capacity     | Total number of seats in the venue                                | INT           | Not Null              | N/A
+                               | venue_type           | Category/type of the dining venue                                 | VARCHAR(50)   | Not Null              | specialty_dining, main_dining, buffet, bar_lounge, cafe
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+seating_inventory_snapshot     | snapshot_id          | Unique identifier for the seating snapshot record                 | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | venue_id             | Reference to the dining venue                                     | VARCHAR(50)   | Not Null              | N/A
+                               | snapshot_ts          | Timestamp when the seating snapshot was captured                  | TIMESTAMP     | Not Null              | N/A
+                               | occupied_seats       | Number of seats occupied at snapshot time                         | INT           | Not Null              | N/A
+                               | available_seats      | Number of seats available at snapshot time                        | INT           | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+pos_transaction                | transaction_id       | Unique identifier for the POS transaction                         | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | guest_id             | Reference to the guest who made the transaction                   | VARCHAR(50)   | Not Null              | N/A
+                               | venue_id             | Reference to the venue where the transaction occurred             | VARCHAR(50)   | Not Null              | N/A
+                               | transaction_ts       | Timestamp when the transaction was recorded                       | TIMESTAMP     | Not Null              | N/A
+                               | bill_amount          | Total bill amount before discounts in USD                         | DECIMAL(10,2) | Not Null              | N/A
+                               | discount_amount      | Discount applied to the bill in USD                               | DECIMAL(10,2) | Not Null              | N/A
+                               | net_amount           | Final net amount charged after discounts in USD                   | DECIMAL(10,2) | Not Null              | N/A
+                               | covers               | Number of diners covered by this transaction                      | INT           | Not Null              | N/A
+                               | offer_id             | Reference to the micro-offer applied (NULL if no offer)           | VARCHAR(50)   | Nullable              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+micro_offer                    | offer_id             | Unique identifier for the micro-offer                             | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | guest_id             | Reference to the targeted guest                                   | VARCHAR(50)   | Not Null              | N/A
+                               | venue_id             | Reference to the venue for which the offer was generated          | VARCHAR(50)   | Not Null              | N/A
+                               | discount_pct         | Percentage discount provided by the offer                         | DECIMAL(5,2)  | Not Null              | 10.00, 15.00, 20.00, 25.00
+                               | offer_type           | Classification of the offer trigger type                          | VARCHAR(50)   | Not Null              | PROXIMITY, LOW_OCCUPANCY, LOYALTY_REWARD, WINBACK
+                               | fired_ts             | Timestamp when the offer was generated and sent                   | TIMESTAMP     | Not Null              | N/A
+                               | ttl_minutes          | Time-to-live of the offer in minutes before it expires            | INT           | Not Null              | 15, 20, 30, 45, 60
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+offer_response                 | response_id          | Unique identifier for the offer response record                   | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | offer_id             | Reference to the micro-offer that was responded to                | VARCHAR(50)   | Not Null              | N/A
+                               | response_status      | Guest's response to the offer                                     | VARCHAR(20)   | Not Null              | ACCEPTED, REJECTED, EXPIRED
+                               | response_ts          | Timestamp when the guest responded to the offer                   | TIMESTAMP     | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+offer_redemption               | redemption_id        | Unique identifier for the offer redemption record                 | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | offer_id             | Reference to the micro-offer that was redeemed                    | VARCHAR(50)   | Not Null              | N/A
+                               | redeemed_ts          | Timestamp when the offer was redeemed at point of sale            | TIMESTAMP     | Not Null              | N/A
+                               | revenue_amount       | Actual revenue generated at time of redemption in USD             | DECIMAL(10,2) | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+zone_master                    | zone_id              | Unique identifier for the RTLS zone                               | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | zone_name            | Display name of the zone                                          | VARCHAR(100)  | Not Null              | N/A
+                               | zone_type            | Category/type of the zone                                         | VARCHAR(50)   | Not Null              | pool, promenade, spa, fitness, casino, lobby, deck
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+guest_presence_event           | event_id             | Unique identifier for the guest presence detection event          | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | guest_id             | Reference to the detected guest                                   | VARCHAR(50)   | Not Null              | N/A
+                               | zone_id              | Reference to the zone where presence was detected                 | VARCHAR(50)   | Not Null              | N/A
+                               | event_ts             | Timestamp when the presence event was detected                    | TIMESTAMP     | Not Null              | N/A
+                               | signal_conf          | Confidence level of the RTLS detection signal (0-1)               | DECIMAL(5,2)  | Not Null              | 0.0 to 1.0
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+guest_journey                  | journey_id           | Unique identifier for the guest journey record                    | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | guest_id             | Reference to the guest undertaking the journey                    | VARCHAR(50)   | Not Null              | N/A
+                               | origin_zone          | Zone identifier where the guest journey originated                | VARCHAR(50)   | Not Null              | N/A
+                               | destination_venue    | Venue identifier where the guest journey ended                    | VARCHAR(50)   | Nullable              | N/A
+                               | journey_start_ts     | Timestamp when the guest journey started                          | TIMESTAMP     | Not Null              | N/A
+                               | journey_end_ts       | Timestamp when the guest journey ended (NULL if in progress)      | TIMESTAMP     | Nullable              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+venue_queue_snapshot           | queue_id             | Unique identifier for the queue snapshot record                   | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | venue_id             | Reference to the venue whose queue is captured                    | VARCHAR(50)   | Not Null              | N/A
+                               | snapshot_ts          | Timestamp when the queue snapshot was taken                       | TIMESTAMP     | Not Null              | N/A
+                               | queue_size           | Number of walk-in guests waiting in queue at snapshot time        | INT           | Not Null              | N/A
+                               | avg_wait_mins        | Average estimated wait time in minutes at snapshot time           | INT           | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ab_test_assignment             | assignment_id        | Unique identifier for the A/B test assignment record              | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | guest_id             | Reference to the guest assigned to the test                       | VARCHAR(50)   | Not Null              | N/A
+                               | test_name            | Name/identifier of the A/B test being run                         | VARCHAR(100)  | Not Null              | N/A
+                               | variant              | Test variant the guest was assigned to                            | VARCHAR(20)   | Not Null              | CONTROL, TEST
+                               | assigned_ts          | Timestamp when the guest was assigned to the test variant         | TIMESTAMP     | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+baseline_revenue               | baseline_id          | Unique identifier for the revenue baseline record                 | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | venue_id             | Reference to the dining venue for the baseline                    | VARCHAR(50)   | Not Null              | N/A
+                               | service_period       | Meal service period for which the baseline applies                | VARCHAR(20)   | Not Null              | BREAKFAST, LUNCH, DINNER
+                               | baseline_date        | Calendar date the baseline is calculated for                      | DATE          | Not Null              | N/A
+                               | baseline_revenue     | Expected baseline revenue for the venue/period/date in USD        | DECIMAL(10,2) | Not Null              | N/A
+                               | baseline_covers      | Expected baseline number of covers for the venue/period/date      | INT           | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+rtls_signal_quality            | signal_id            | Unique identifier for the RTLS signal quality snapshot            | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | zone_id              | Reference to the zone whose signal quality is measured            | VARCHAR(50)   | Not Null              | N/A
+                               | snapshot_ts          | Timestamp when the signal quality snapshot was taken              | TIMESTAMP     | Not Null              | N/A
+                               | avg_confidence       | Average RTLS signal confidence across all detections in zone      | DECIMAL(5,2)  | Not Null              | 0.0 to 1.0
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+offer_delivery_log             | delivery_id          | Unique identifier for the offer delivery log record               | VARCHAR(50)   | Primary Key, Not Null | N/A
+                               | offer_id             | Reference to the micro-offer that was delivered                   | VARCHAR(50)   | Not Null              | N/A
+                               | delivery_status      | Status of the offer delivery attempt                              | VARCHAR(20)   | Not Null              | DELIVERED, FAILED, PENDING
+                               | delivery_ts          | Timestamp when the delivery attempt was made                      | TIMESTAMP     | Not Null              | N/A
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
