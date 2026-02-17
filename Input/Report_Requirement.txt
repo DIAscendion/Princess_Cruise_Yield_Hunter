@@ -1,322 +1,745 @@
-# Yield Hunter - Data Source to Report Mapping
-# Shows how operational tables (op_*) feed into Gold KPIs and reporting requirements
+# Yield Hunter - Reporting Requirements Document
 
-================================================================================
-OPERATIONAL DATA SOURCES (Bronze/Silver Layer)
-================================================================================
-
-1. op_guest_presence_log
-   - Source System: RTLS / Medallion readers
-   - Grain: One presence ping per guest at zone/time
-   - Update Frequency: Real-time (seconds)
-   - Key Fields: event_ts_utc, guest_id, location_id, zone_type, dwell_seconds
-
-2. op_dining_inventory_snapshot
-   - Source System: PMS/Dining system
-   - Grain: One availability snapshot per venue/time
-   - Update Frequency: Every 5-15 minutes
-   - Key Fields: snapshot_ts_utc, venue_id, capacity_seats, occupied_seats, available_seats
-
-3. op_micro_offer_events
-   - Source System: Offer orchestration service
-   - Grain: One offer lifecycle event (state machine)
-   - Update Frequency: Real-time (event-driven)
-   - Key Fields: offer_ts_utc, offer_id, guest_id, state, estimated_revenue_usd
-
-================================================================================
-GOLD LAYER KPI TABLE
-================================================================================
-
-Table: gold_yield_hunter_kpis
-Grain: hour × venue_id
-Refresh: Hourly batch aggregation
-
-Columns:
-  - hour_utc (timestamp)
-  - venue_id (string)
-  - occ_rate (decimal) - from op_dining_inventory_snapshot
-  - low_occupancy_flag (boolean) - derived (occ_rate < 0.45)
-  - presented (int) - from op_micro_offer_events WHERE state='presented'
-  - accepted (int) - from op_micro_offer_events WHERE state='accepted'
-  - redeemed (int) - from op_micro_offer_events WHERE state='redeemed'
-  - expired (int) - from op_micro_offer_events WHERE state='expired'
-  - accept_rate (decimal) - accepted / presented
-  - redeem_rate (decimal) - redeemed / presented
-  - revenue_usd (decimal) - SUM(estimated_revenue_usd) WHERE state='redeemed'
-  - seats_filled_via_offers (int) - SUM(party_size) WHERE state='redeemed'
-
-================================================================================
-REPORT-TO-DATA MAPPING
-================================================================================
-
-REPORT: Venue_Occupancy_Overview
-├─ PRIMARY SOURCE: op_dining_inventory_snapshot
-├─ AGGREGATION: 
-│  ├─ AVG(occupied_seats/capacity_seats) AS occupancy_rate
-│  ├─ AVG(available_seats) AS avg_available_seats
-│  └─ CASE WHEN occupancy_rate < 0.45 THEN 1 ELSE 0 END AS low_occupancy_flag
-├─ DIMENSIONS: venue_id, HOUR(snapshot_ts_utc), DAYOFWEEK(snapshot_ts_utc)
-└─ GOLD TABLE: gold_yield_hunter_kpis (direct mapping)
+**Document Type:** Business Requirements  
+**Created By:** Business Analysis Team 
+**Version:** 1.0  
+**Status:** Final Draft  
 
 ---
 
-REPORT: Micro_Offer_Conversion_Funnel
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ AGGREGATION:
-│  ├─ COUNT(DISTINCT offer_id) WHERE state='presented' AS presented_count
-│  ├─ COUNT(DISTINCT offer_id) WHERE state='accepted' AS accepted_count
-│  ├─ COUNT(DISTINCT offer_id) WHERE state='redeemed' AS redeemed_count
-│  ├─ COUNT(DISTINCT offer_id) WHERE state='expired' AS expired_count
-│  └─ accepted_count / presented_count AS accept_rate
-├─ DIMENSIONS: venue_id, discount_pct, party_size, DATE(offer_ts_utc)
-└─ GOLD TABLE: gold_yield_hunter_kpis (aggregated metrics)
+## 1. EXECUTIVE SUMMARY
+
+### 1.1 Purpose
+This document outlines the reporting requirements for the Yield Hunter revenue optimization system. The reports will enable stakeholders to monitor venue occupancy, track micro-offer performance, analyze guest behavior, and optimize revenue generation across dining venues.
+
+### 1.2 Scope
+The reporting solution will provide real-time operational dashboards, historical trend analysis, and predictive insights to support data-driven decision making for venue yield management.
+
+### 1.3 Intended Audience
+- **Primary Users:** Revenue Managers, Venue Operations Managers, Marketing Teams
+- **Secondary Users:** Executive Leadership, Business Intelligence Teams
+- **Technical Teams:** Data Engineers, Analytics Teams (for implementation reference)
 
 ---
 
-REPORT: Guest_Presence_Heatmap
-├─ PRIMARY SOURCE: op_guest_presence_log
-├─ AGGREGATION:
-│  ├─ AVG(dwell_seconds) AS avg_dwell_seconds
-│  ├─ COUNT(DISTINCT guest_id) AS unique_guests
-│  ├─ COUNT(*) AS total_pings
-│  └─ COUNT(*) / COUNT(DISTINCT guest_id) AS avg_pings_per_guest
-├─ DIMENSIONS: zone_type, location_id, HOUR(event_ts_utc), DAYOFWEEK(event_ts_utc)
-└─ GOLD TABLE: Requires separate aggregation (zone-level, not in gold_yield_hunter_kpis)
+## 2. DATA SOURCES OVERVIEW
+
+### 2.1 Operational Data Sources
+
+**Guest Presence Tracking**
+- **Source:** Real-Time Location System (RTLS) / Medallion Readers
+- **Update Frequency:** Real-time (every few seconds)
+- **Primary Use:** Guest movement tracking, zone dwell time analysis, journey mapping
+
+**Dining Inventory Management**
+- **Source:** Property Management System (PMS) / Dining Reservation System
+- **Update Frequency:** Every 5-15 minutes
+- **Primary Use:** Venue capacity monitoring, occupancy rate tracking, availability management
+
+**Micro-Offer Campaign Events**
+- **Source:** Offer Orchestration Service
+- **Update Frequency:** Real-time (event-driven)
+- **Primary Use:** Offer lifecycle tracking, conversion analysis, revenue attribution
+
+### 2.2 Aggregated Analytics Data
+
+**Venue Performance KPIs**
+- **Update Frequency:** Hourly batch processing
+- **Primary Use:** Historical trending, performance benchmarking, strategic planning
 
 ---
 
-REPORT: Revenue_Attribution_Dashboard
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ JOIN: op_dining_inventory_snapshot (for venue context)
-├─ AGGREGATION:
-│  ├─ SUM(estimated_revenue_usd) WHERE state='redeemed' AS total_revenue
-│  ├─ AVG(estimated_revenue_usd) WHERE state='redeemed' AS avg_revenue_per_redemption
-│  ├─ SUM(party_size) WHERE state='redeemed' AS incremental_seats_filled
-│  └─ GROUP BY venue_id, discount_pct
-├─ DIMENSIONS: venue_id, discount_pct, offer_type, DATE(offer_ts_utc)
-└─ GOLD TABLE: gold_yield_hunter_kpis.revenue_usd, seats_filled_via_offers
+## 3. REPORTING REQUIREMENTS
+
+### 3.1 REPORT: Venue Occupancy Overview
+
+**Business Objective:**  
+Monitor real-time and historical occupancy rates across all dining venues to identify low-utilization periods and optimize seating capacity.
+
+**Primary Users:** Venue Operations Managers, Revenue Managers
+
+**Key Metrics:**
+- Current occupancy rate (% seats occupied)
+- Average available seats by time period
+- Low occupancy alerts (occupancy < 45%)
+- Peak vs. off-peak occupancy comparison
+
+**Dimensions/Filters:**
+- Venue name
+- Date/time (hourly view)
+- Day of week
+- Service period (breakfast, lunch, dinner)
+
+**Visualization Requirements:**
+- Line chart: Occupancy trend over time
+- Heat map: Occupancy by venue and time of day
+- KPI cards: Current occupancy, available seats
+- Alert indicators: Low occupancy flags (red/yellow/green)
+
+**Refresh Frequency:** Real-time (updates every 5-15 minutes)
+
+**Export Options:** Excel, PDF
 
 ---
 
-REPORT: Offer_Performance_Analysis
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ DERIVED METRICS:
-│  ├─ (accepted / presented) GROUP BY discount_pct AS conversion_by_discount
-│  ├─ (accepted / presented) GROUP BY party_size AS conversion_by_party_size
-│  ├─ AVG(TIMESTAMPDIFF(SECOND, offer_ts_utc, redeemed_ts_utc)) AS time_to_acceptance
-│  └─ Offer TTL effectiveness (redeemed within TTL window)
-├─ DIMENSIONS: discount_pct, party_size, target_zone, venue_id
-└─ GOLD TABLE: Partial (needs detailed drill-down beyond hourly aggregation)
+### 3.2 REPORT: Micro-Offer Conversion Funnel
+
+**Business Objective:**  
+Track the performance of micro-offer campaigns from presentation through redemption to measure engagement effectiveness and identify drop-off points.
+
+**Primary Users:** Marketing Teams, Revenue Managers
+
+**Key Metrics:**
+- Total offers presented
+- Offers accepted (acceptance rate %)
+- Offers redeemed (redemption rate %)
+- Offers expired (expiration rate %)
+- Conversion funnel visualization
+
+**Dimensions/Filters:**
+- Venue name
+- Discount percentage tier
+- Party size
+- Date range
+- Offer type
+
+**Visualization Requirements:**
+- Funnel chart: Presented → Accepted → Redeemed
+- Bar chart: Conversion rates by discount tier
+- Trend line: Daily acceptance/redemption rates
+- Table: Detailed offer performance metrics
+
+**Refresh Frequency:** Hourly
+
+**Export Options:** Excel, PDF, PowerPoint
 
 ---
 
-REPORT: Low_Occupancy_Alert_Report
-├─ PRIMARY SOURCE: op_dining_inventory_snapshot
-├─ JOIN: op_micro_offer_events (to see offers fired)
-├─ FILTER: WHERE (occupied_seats/capacity_seats) < 0.45
-├─ AGGREGATION:
-│  ├─ Current occupancy_rate
-│  ├─ available_seats
-│  ├─ COUNT offers presented/accepted in last hour
-│  └─ CASE WHEN presented = 0 AND low_occ THEN 1 ELSE 0 END AS missed_opportunity
-├─ DIMENSIONS: venue_id, time_window (15-min buckets), day_part (breakfast/lunch/dinner)
-└─ GOLD TABLE: gold_yield_hunter_kpis.low_occupancy_flag + live inventory feed
+### 3.3 REPORT: Guest Presence Heatmap
+
+**Business Objective:**  
+Visualize guest movement patterns and zone popularity to optimize venue placement and offer targeting strategies.
+
+**Primary Users:** Operations Managers, Marketing Teams
+
+**Key Metrics:**
+- Unique guests per zone
+- Average dwell time (minutes)
+- Total presence events (pings)
+- Average pings per guest (engagement indicator)
+
+**Dimensions/Filters:**
+- Zone type (casino, pool, theater, etc.)
+- Location ID
+- Time of day (hourly)
+- Day of week
+
+**Visualization Requirements:**
+- Heat map: Guest density by zone and time
+- Bar chart: Top 10 most-visited zones
+- Bubble chart: Dwell time vs. guest count
+- Timeline: Guest traffic patterns throughout the day
+
+**Refresh Frequency:** Real-time (updates every 5 minutes)
+
+**Export Options:** PDF, Image
 
 ---
 
-REPORT: Guest_Journey_Tracking
-├─ PRIMARY SOURCE: op_guest_presence_log
-├─ JOIN: op_micro_offer_events (to track conversion)
-├─ WINDOW FUNCTION:
-│  ├─ LEAD(location_id) OVER (PARTITION BY guest_id ORDER BY event_ts_utc) AS next_location
-│  ├─ TIMESTAMPDIFF(MINUTE, event_ts_utc, next_event_ts) AS journey_duration
-│  └─ CASE WHEN next_location IN (SELECT venue_id FROM op_micro_offer_events) THEN 1 ELSE 0 END
-├─ DIMENSIONS: zone_type (origin), venue_id (destination), guest_segment
-└─ GOLD TABLE: Not in gold_yield_hunter_kpis (requires detailed event sequencing)
+### 3.4 REPORT: Revenue Attribution Dashboard
+
+**Business Objective:**  
+Measure the incremental revenue generated through micro-offer redemptions and track return on investment for discount campaigns.
+
+**Primary Users:** Revenue Managers, Executive Leadership
+
+**Key Metrics:**
+- Total revenue from redeemed offers (USD)
+- Average revenue per redemption
+- Incremental seats filled via offers
+- Revenue by discount tier
+- Cost of discounts vs. revenue generated
+
+**Dimensions/Filters:**
+- Venue name
+- Discount percentage
+- Offer type
+- Date range
+- Party size
+
+**Visualization Requirements:**
+- KPI cards: Total revenue, average revenue per redemption
+- Stacked bar chart: Revenue by venue and discount tier
+- Line chart: Revenue trend over time
+- Table: Detailed revenue breakdown by offer parameters
+
+**Refresh Frequency:** Hourly
+
+**Export Options:** Excel, PDF
 
 ---
 
-REPORT: Inventory_Perishability_Dashboard
-├─ PRIMARY SOURCE: op_dining_inventory_snapshot
-├─ DERIVED METRICS:
-│  ├─ Minutes until next service period (based on venue schedule)
-│  ├─ SUM(available_seats * minutes_remaining) AS unused_capacity_hours
-│  ├─ (total_covers / total_service_hours) AS table_turnover_rate
-│  └─ (revenue_usd / (capacity_seats * service_hours)) AS RevPASH
-├─ DIMENSIONS: venue_id, service_period (breakfast/lunch/dinner), day_of_week
-└─ GOLD TABLE: Requires time-based calculations beyond gold_yield_hunter_kpis
+### 3.5 REPORT: Offer Performance Analysis
+
+**Business Objective:**  
+Analyze which offer characteristics (discount level, party size, timing) drive the highest conversion rates to optimize future campaigns.
+
+**Primary Users:** Marketing Teams, Revenue Managers
+
+**Key Metrics:**
+- Conversion rate by discount percentage
+- Conversion rate by party size
+- Average time to acceptance (minutes)
+- Offer effectiveness within TTL (time-to-live) window
+
+**Dimensions/Filters:**
+- Discount tier (10%, 15%, 20%, 25%)
+- Party size (1, 2, 3-4, 5+)
+- Target zone
+- Venue name
+- Time of day
+
+**Visualization Requirements:**
+- Column chart: Conversion rate by discount tier
+- Scatter plot: Time to acceptance distribution
+- Matrix: Conversion rates by discount × party size
+- Box plot: Conversion rate variability by venue
+
+**Refresh Frequency:** Daily
+
+**Export Options:** Excel, PDF, PowerPoint
 
 ---
 
-REPORT: A_B_Test_Performance_Report
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ JOIN: Guest assignment to control/test group (separate table needed)
-├─ AGGREGATION:
-│  ├─ SUM(revenue) WHERE group='control' AS control_revenue
-│  ├─ SUM(revenue) WHERE group='test' AS test_revenue
-│  ├─ (test_revenue - control_revenue) AS incremental_revenue
-│  └─ Statistical significance test (t-test, chi-square)
-├─ DIMENSIONS: test_variant, offer_strategy, guest_segment
-└─ GOLD TABLE: Requires A/B metadata (not in current gold schema)
+### 3.6 REPORT: Low Occupancy Alert Report
+
+**Business Objective:**  
+Proactively identify venues experiencing low occupancy and track whether offers are being deployed to address capacity gaps.
+
+**Primary Users:** Operations Managers, Revenue Managers
+
+**Key Metrics:**
+- Current occupancy rate (< 45% threshold)
+- Available seats
+- Number of offers presented in last hour
+- Missed opportunity indicator (low occupancy + no offers)
+
+**Dimensions/Filters:**
+- Venue name
+- Time window (15-minute intervals)
+- Day part (breakfast, lunch, dinner)
+- Alert severity (critical, warning, normal)
+
+**Visualization Requirements:**
+- Alert table: Venues with low occupancy (sorted by severity)
+- Gauge chart: Current occupancy vs. threshold
+- Timeline: Offers deployed during low occupancy periods
+- Map view: Venue locations with alert indicators
+
+**Refresh Frequency:** Real-time (updates every 15 minutes)
+
+**Alert Functionality:** Email/SMS notifications when threshold breached
+
+**Export Options:** Excel, PDF
 
 ---
 
-REPORT: Discount_Optimization_Analysis
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ DERIVED METRICS:
-│  ├─ (redeemed / presented) AS redemption_rate
-│  ├─ SUM(estimated_revenue_usd) AS gross_revenue
-│  ├─ SUM(estimated_revenue_usd * discount_pct) AS discount_cost
-│  ├─ (gross_revenue - discount_cost) / gross_revenue AS profit_margin
-│  └─ discount_cost / redeemed AS cost_per_acquisition
-├─ DIMENSIONS: discount_pct (tier: 10/15/20/25), party_size, venue_type
-└─ GOLD TABLE: Needs cost calculation layer (beyond gold_yield_hunter_kpis)
+### 3.7 REPORT: Guest Journey Tracking
+
+**Business Objective:**  
+Understand guest movement paths to identify high-conversion zones and optimize offer placement strategies.
+
+**Primary Users:** Marketing Teams, Operations Managers
+
+**Key Metrics:**
+- Common journey paths (origin → destination)
+- Journey duration (minutes)
+- Conversion correlation (zone → venue)
+- Guest segment journey patterns
+
+**Dimensions/Filters:**
+- Origin zone type
+- Destination venue
+- Guest segment
+- Time of day
+
+**Visualization Requirements:**
+- Sankey diagram: Guest flow between zones
+- Path analysis chart: Most common journeys
+- Bar chart: Journey duration distribution
+- Matrix: Zone-to-venue conversion rates
+
+**Refresh Frequency:** Daily
+
+**Export Options:** PDF, PowerPoint
 
 ---
 
-REPORT: Guest_Engagement_Metrics
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ WINDOW FUNCTION:
-│  ├─ COUNT(*) OVER (PARTITION BY guest_id ORDER BY offer_ts_utc) AS offer_sequence
-│  ├─ LAG(state) OVER (PARTITION BY guest_id ORDER BY offer_ts_utc) AS previous_response
-│  └─ Acceptance rate by offer_sequence (detect fatigue)
-├─ DIMENSIONS: guest_segment, cruise_day, previous_offer_count
-└─ GOLD TABLE: Requires guest-level history (not in venue-hour aggregation)
+### 3.8 REPORT: Inventory Perishability Dashboard
+
+**Business Objective:**  
+Quantify unused seating capacity as "perishable inventory" to justify proactive offer deployment and maximize revenue per available seat hour (RevPASH).
+
+**Primary Users:** Revenue Managers, Executive Leadership
+
+**Key Metrics:**
+- Minutes until next service period
+- Unused capacity hours (available seats × time remaining)
+- Table turnover rate
+- Revenue per available seat hour (RevPASH)
+
+**Dimensions/Filters:**
+- Venue name
+- Service period (breakfast, lunch, dinner)
+- Day of week
+
+**Visualization Requirements:**
+- KPI cards: Total unused capacity hours, RevPASH
+- Area chart: Capacity utilization over service period
+- Bar chart: Turnover rate by venue
+- Warning indicators: High unused capacity
+
+**Refresh Frequency:** Every 15 minutes during service periods
+
+**Export Options:** Excel, PDF
 
 ---
 
-REPORT: Operational_Readiness_Dashboard
-├─ PRIMARY SOURCE: op_guest_presence_log
-├─ ADDITIONAL SOURCES: op_dining_inventory_snapshot, op_micro_offer_events
-├─ METRICS:
-│  ├─ AVG(signal_confidence) FROM op_guest_presence_log AS rtls_quality
-│  ├─ MAX(event_ts_utc) - CURRENT_TIMESTAMP AS data_latency
-│  ├─ COUNT(snapshot updates in last 15min) AS inventory_refresh_rate
-│  └─ (offers_delivered / offers_attempted) AS delivery_success_rate
-├─ DIMENSIONS: source_system, data_feed, time_period
-└─ GOLD TABLE: System metadata layer (separate from KPIs)
+### 3.9 REPORT: A/B Test Performance Report
+
+**Business Objective:**  
+Measure the effectiveness of offer strategies through controlled A/B testing to validate optimization hypotheses.
+
+**Primary Users:** Marketing Teams, Data Analytics Teams
+
+**Key Metrics:**
+- Control group revenue
+- Test group revenue
+- Incremental revenue (test - control)
+- Statistical significance (p-value)
+- Lift percentage
+
+**Dimensions/Filters:**
+- Test variant name
+- Offer strategy
+- Guest segment
+- Test duration
+
+**Visualization Requirements:**
+- Side-by-side comparison: Control vs. Test metrics
+- Waterfall chart: Revenue lift breakdown
+- Statistical summary table: Confidence intervals, significance
+- Time series: Daily performance comparison
+
+**Refresh Frequency:** Daily (during test period)
+
+**Export Options:** Excel, PDF, PowerPoint
 
 ---
 
-REPORT: Venue_Yield_Scorecard
-├─ PRIMARY SOURCE: op_micro_offer_events + op_dining_inventory_snapshot
-├─ DERIVED METRICS:
-│  ├─ Total covers (baseline + walk-ins + offers)
-│  ├─ Walk-in covers (from walkin_queue_size delta)
-│  ├─ Offer-driven covers (SUM(party_size) WHERE state='redeemed')
-│  ├─ Revenue per cover (total_revenue / total_covers)
-│  └─ Yield index = (actual_revenue / potential_revenue) * 100
-├─ DIMENSIONS: venue_id, service_type, DATE(time_period)
-└─ GOLD TABLE: gold_yield_hunter_kpis + baseline calculations
+### 3.10 REPORT: Discount Optimization Analysis
+
+**Business Objective:**  
+Determine the optimal discount level that maximizes net revenue after accounting for discount costs.
+
+**Primary Users:** Revenue Managers, Pricing Analysts
+
+**Key Metrics:**
+- Redemption rate by discount tier
+- Gross revenue
+- Discount cost (revenue × discount %)
+- Profit margin (net revenue / gross revenue)
+- Cost per acquisition
+
+**Dimensions/Filters:**
+- Discount tier (10%, 15%, 20%, 25%)
+- Party size
+- Venue type
+- Date range
+
+**Visualization Requirements:**
+- Line chart: Redemption rate vs. discount level
+- Stacked bar chart: Gross revenue vs. net revenue by tier
+- Scatter plot: Profit margin vs. redemption rate
+- Table: Cost-benefit analysis by discount tier
+
+**Refresh Frequency:** Daily
+
+**Export Options:** Excel, PDF
 
 ---
 
-REPORT: Time_Window_Opportunity_Analysis
-├─ PRIMARY SOURCE: op_dining_inventory_snapshot + op_micro_offer_events
-├─ AGGREGATION:
-│  ├─ AVG(occupancy_rate) BY 30-minute time_window
-│  ├─ COUNT(offers_fired) BY time_window
-│  ├─ (accepted / presented) AS conversion_rate
-│  ├─ SUM(revenue_usd) BY time_window
-│  └─ Composite opportunity_score = f(low_occ, high_conversion, high_revenue)
-├─ DIMENSIONS: time_window (30-min buckets), day_of_week, venue_type
-└─ GOLD TABLE: gold_yield_hunter_kpis (aggregated to 30-min windows)
+### 3.11 REPORT: Guest Engagement Metrics
+
+**Business Objective:**  
+Track individual guest responsiveness to offers over time to identify engagement fatigue and optimize offer cadence.
+
+**Primary Users:** Marketing Teams, Customer Experience Teams
+
+**Key Metrics:**
+- Offer sequence number (1st, 2nd, 3rd+ offer to guest)
+- Acceptance rate by offer sequence
+- Previous offer response impact
+- Fatigue indicators (declining acceptance over time)
+
+**Dimensions/Filters:**
+- Guest segment
+- Cruise day number
+- Previous offer count
+- Time since last offer
+
+**Visualization Requirements:**
+- Line chart: Acceptance rate by offer sequence
+- Matrix: Current response vs. previous response
+- Cohort analysis: Guest engagement over cruise duration
+- Alert indicators: Guests showing fatigue
+
+**Refresh Frequency:** Daily
+
+**Export Options:** Excel, PDF
 
 ---
 
-REPORT: Party_Size_Segmentation_Report
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ AGGREGATION:
-│  ├─ AVG(party_size) BY segment
-│  ├─ (accepted / presented) GROUP BY party_size AS acceptance_by_size
-│  ├─ SUM(revenue_usd) GROUP BY party_size
-│  └─ (seats_filled / total_available_seats) AS efficiency
-├─ DIMENSIONS: party_size (1/2/3-4/5+), venue_id, discount_tier
-└─ GOLD TABLE: Needs party_size dimension (added to gold aggregation)
+### 3.12 REPORT: Operational Readiness Dashboard
+
+**Business Objective:**  
+Monitor system health and data quality to ensure reliable reporting and offer delivery.
+
+**Primary Users:** IT Operations, Data Engineering Teams
+
+**Key Metrics:**
+- RTLS signal quality (average confidence score)
+- Data latency (minutes)
+- Inventory refresh rate (updates per hour)
+- Offer delivery success rate
+
+**Dimensions/Filters:**
+- Source system
+- Data feed name
+- Time period
+- Alert status
+
+**Visualization Requirements:**
+- KPI cards: System uptime, data latency, delivery success rate
+- Timeline: Data refresh intervals
+- Bar chart: Signal quality by zone
+- Alert log: System issues and resolutions
+
+**Refresh Frequency:** Real-time (updates every 5 minutes)
+
+**Alert Functionality:** Automated alerts for system degradation
+
+**Export Options:** Excel, PDF
 
 ---
 
-REPORT: Queue_Displacement_Analysis
-├─ PRIMARY SOURCE: op_dining_inventory_snapshot
-├─ JOIN: op_micro_offer_events
-├─ DERIVED METRICS:
-│  ├─ AVG(walkin_queue_size)
-│  ├─ COUNT(offers_accepted) in same time window
-│  ├─ (queue_reduction / offers_accepted) AS displacement_rate
-│  └─ Estimated service_delay_minutes (queue * avg_service_time)
-├─ DIMENSIONS: venue_id, time_period, occupancy_level (low/medium/high)
-└─ GOLD TABLE: Requires queue tracking (not in gold_yield_hunter_kpis)
+### 3.13 REPORT: Venue Yield Scorecard
+
+**Business Objective:**  
+Provide a comprehensive performance scorecard for each venue comparing actual performance to potential revenue.
+
+**Primary Users:** Revenue Managers, Venue Operations Managers, Executive Leadership
+
+**Key Metrics:**
+- Total covers (baseline + walk-ins + offer-driven)
+- Walk-in covers
+- Offer-driven covers
+- Revenue per cover
+- Yield index (actual revenue / potential revenue × 100)
+
+**Dimensions/Filters:**
+- Venue name
+- Service type
+- Date range
+- Comparison period (vs. previous week/month)
+
+**Visualization Requirements:**
+- Scorecard table: Multi-metric performance by venue
+- Gauge chart: Yield index (0-100%)
+- Stacked bar chart: Covers breakdown (baseline/walk-in/offers)
+- Trend line: Yield index over time
+
+**Refresh Frequency:** Daily
+
+**Export Options:** Excel, PDF, PowerPoint
 
 ---
 
-REPORT: RTLS_Coverage_Quality_Report
-├─ PRIMARY SOURCE: op_guest_presence_log
-├─ AGGREGATION:
-│  ├─ AVG(signal_confidence) BY zone
-│  ├─ COUNT(*) / COUNT(DISTINCT guest_id) AS avg_ping_frequency
-│  ├─ COUNT zones WITH signal_confidence < 0.7 AS dead_zone_count
-│  └─ Tracking error rate (missed expected pings)
-├─ DIMENSIONS: zone_type, location_id, sensor_id
-└─ GOLD TABLE: Separate data quality table (not in KPIs)
+### 3.14 REPORT: Time Window Opportunity Analysis
+
+**Business Objective:**  
+Identify specific time windows with the highest revenue opportunity based on low occupancy, high conversion rates, and strong revenue potential.
+
+**Primary Users:** Revenue Managers, Marketing Teams
+
+**Key Metrics:**
+- Average occupancy rate by 30-minute window
+- Offers fired per time window
+- Conversion rate by time window
+- Revenue by time window
+- Composite opportunity score
+
+**Dimensions/Filters:**
+- Time window (30-minute buckets)
+- Day of week
+- Venue type
+
+**Visualization Requirements:**
+- Heat map: Opportunity score by time window and day
+- Stacked area chart: Occupancy + conversion + revenue over time
+- Top 10 list: Highest opportunity time windows
+- Matrix: Time window performance by venue
+
+**Refresh Frequency:** Daily
+
+**Export Options:** Excel, PDF, PowerPoint
 
 ---
 
-REPORT: Incremental_Revenue_Attribution
-├─ PRIMARY SOURCE: op_micro_offer_events
-├─ JOIN: Baseline revenue table (A/B test control or historical avg)
-├─ DERIVED METRICS:
-│  ├─ SUM(revenue) FROM baseline_period AS baseline_revenue
-│  ├─ SUM(revenue_usd) WHERE state='redeemed' AS with_offers_revenue
-│  ├─ (with_offers - baseline) AS incremental_revenue
-│  ├─ (redeemed_covers - baseline_covers) AS incremental_covers
-│  └─ (incremental_revenue / offer_cost) AS ROI_percentage
-├─ DIMENSIONS: venue_id, comparison_period, guest_segment
-└─ GOLD TABLE: Requires baseline comparison layer
+### 3.15 REPORT: Party Size Segmentation Report
 
-================================================================================
-ADDITIONAL TABLES NEEDED FOR COMPLETE REPORTING
-================================================================================
+**Business Objective:**  
+Analyze offer performance and venue efficiency by party size to optimize offer targeting and seating arrangements.
 
-1. dim_venue
-   - venue_id (PK)
-   - venue_name
-   - venue_type
-   - capacity_seats
-   - service_periods (array: breakfast/lunch/dinner times)
-   - cost_per_cover_avg
+**Primary Users:** Revenue Managers, Operations Managers
 
-2. dim_guest_segment
-   - guest_id (PK)
-   - segment (loyalty_tier, spending_propensity, cruise_frequency)
-   - ab_test_group (control/test)
-   - opt_out_flag
+**Key Metrics:**
+- Average party size
+- Acceptance rate by party size
+- Revenue by party size
+- Seating efficiency (seats filled / total available)
 
-3. fact_baseline_revenue
-   - date
-   - venue_id
-   - service_period
-   - baseline_covers
-   - baseline_revenue_usd
+**Dimensions/Filters:**
+- Party size segment (1, 2, 3-4, 5+ guests)
+- Venue name
+- Discount tier
 
-4. log_system_health
-   - timestamp
-   - source_system
-   - metric_name
-   - metric_value
-   - status
+**Visualization Requirements:**
+- Column chart: Acceptance rate by party size
+- Bar chart: Revenue by party size
+- Pie chart: Party size distribution
+- Table: Detailed metrics by party size segment
 
-================================================================================
-REFRESH CADENCE BY LAYER
-================================================================================
+**Refresh Frequency:** Daily
 
-BRONZE (Operational Sources):
-├─ op_guest_presence_log: Real-time (< 5 sec latency)
-├─ op_dining_inventory_snapshot: Every 5-15 minutes
-└─ op_micro_offer_events: Real-time (event-driven)
+**Export Options:** Excel, PDF
 
-GOLD (Aggregated KPIs):
-├─ gold_yield_hunter_kpis: Hourly batch (at :05 past each hour)
-├─ Real-time dashboard: Direct query on operational sources
-└─ Historical analysis: Daily/weekly batch jobs
+---
 
-================================================================================
+### 3.16 REPORT: Queue Displacement Analysis
+
+**Business Objective:**  
+Measure whether micro-offers reduce walk-in queue sizes or cause displacement issues during high-demand periods.
+
+**Primary Users:** Operations Managers, Guest Experience Teams
+
+**Key Metrics:**
+- Average walk-in queue size
+- Offers accepted during same time window
+- Queue displacement rate (queue reduction / offers accepted)
+- Estimated service delay (minutes)
+
+**Dimensions/Filters:**
+- Venue name
+- Time period
+- Occupancy level (low, medium, high)
+
+**Visualization Requirements:**
+- Line chart: Queue size vs. offers accepted over time
+- Scatter plot: Queue size vs. occupancy rate
+- Bar chart: Service delay by venue
+- Alert indicators: Negative displacement (queue increased)
+
+**Refresh Frequency:** Real-time (every 15 minutes)
+
+**Export Options:** Excel, PDF
+
+---
+
+### 3.17 REPORT: RTLS Coverage Quality Report
+
+**Business Objective:**  
+Monitor the quality of guest tracking data to ensure accurate offer targeting and presence analytics.
+
+**Primary Users:** IT Operations, Data Quality Teams
+
+**Key Metrics:**
+- Average signal confidence by zone
+- Ping frequency (pings per guest)
+- Dead zone count (zones with signal confidence < 70%)
+- Tracking error rate
+
+**Dimensions/Filters:**
+- Zone type
+- Location ID
+- Sensor ID
+
+**Visualization Requirements:**
+- Heat map: Signal quality by zone location
+- Bar chart: Zones ranked by signal confidence
+- Line chart: Signal quality trend over time
+- Alert table: Dead zones requiring attention
+
+**Refresh Frequency:** Real-time (every 5 minutes)
+
+**Alert Functionality:** Automated alerts for signal degradation
+
+**Export Options:** Excel, PDF
+
+---
+
+### 3.18 REPORT: Incremental Revenue Attribution
+
+**Business Objective:**  
+Quantify the true incremental revenue generated by the Yield Hunter system compared to baseline performance.
+
+**Primary Users:** Executive Leadership, Revenue Managers, Finance Teams
+
+**Key Metrics:**
+- Baseline revenue (control period or historical average)
+- Revenue with offers enabled
+- Incremental revenue (with offers - baseline)
+- Incremental covers
+- Return on investment (ROI %)
+
+**Dimensions/Filters:**
+- Venue name
+- Comparison period (week/month/quarter)
+- Guest segment
+
+**Visualization Requirements:**
+- Waterfall chart: Baseline → Incremental → Total revenue
+- Bar chart: Incremental revenue by venue
+- KPI cards: Total incremental revenue, ROI %
+- Trend line: Incremental revenue over time
+
+**Refresh Frequency:** Weekly
+
+**Export Options:** Excel, PDF, PowerPoint
+
+---
+
+## 4. SUPPORTING DATA REQUIREMENTS
+
+### 4.1 Master Data / Dimension Tables
+
+**Venue Master Data**
+- Venue ID, Name, Type
+- Seating capacity
+- Service periods (breakfast, lunch, dinner times)
+- Average cost per cover
+
+**Guest Segmentation Data**
+- Guest ID
+- Loyalty tier, spending propensity
+- A/B test group assignment
+- Opt-out preferences
+
+**Baseline Revenue Data**
+- Historical revenue by venue and service period
+- Baseline covers (pre-offer implementation)
+- Used for incremental revenue calculations
+
+**System Health Metadata**
+- Data source uptime and latency metrics
+- Alert logs and issue tracking
+
+---
+
+## 5. REFRESH SCHEDULES
+
+### 5.1 Real-Time Reports (< 5 minutes latency)
+- Venue Occupancy Overview
+- Guest Presence Heatmap
+- Low Occupancy Alert Report
+- Queue Displacement Analysis
+- RTLS Coverage Quality Report
+- Operational Readiness Dashboard
+
+### 5.2 Near Real-Time Reports (Hourly refresh)
+- Micro-Offer Conversion Funnel
+- Revenue Attribution Dashboard
+- Venue Yield Scorecard
+
+### 5.3 Daily Batch Reports
+- Offer Performance Analysis
+- Guest Journey Tracking
+- Inventory Perishability Dashboard
+- A/B Test Performance Report
+- Discount Optimization Analysis
+- Guest Engagement Metrics
+- Time Window Opportunity Analysis
+- Party Size Segmentation Report
+
+### 5.4 Weekly Reports
+- Incremental Revenue Attribution
+- Executive Summary Dashboards
+
+---
+
+## 6. USER ACCESS & SECURITY
+
+### 6.1 Role-Based Access
+- **Executive Leadership:** All strategic reports (revenue, yield, ROI)
+- **Revenue Managers:** All operational and analytical reports
+- **Operations Managers:** Venue occupancy, inventory, queue management
+- **Marketing Teams:** Offer performance, guest engagement, A/B testing
+- **IT/Data Teams:** System health, data quality reports
+
+### 6.2 Data Security
+- All guest data must be anonymized in shared reports
+- Personally identifiable information (PII) restricted to authorized users only
+- Audit logs for sensitive report access
+
+---
+
+## 7. TECHNICAL REQUIREMENTS
+
+### 7.1 Report Delivery Methods
+- **Interactive Dashboards:** Power BI, Tableau, or similar BI platform
+- **Scheduled Email Delivery:** PDF/Excel reports sent daily/weekly
+- **Mobile Access:** Key dashboards accessible via mobile app
+- **API Access:** For custom integrations and data feeds
+
+### 7.2 Performance Requirements
+- Real-time dashboards must refresh within 30 seconds
+- Batch reports must complete processing within 1 hour of scheduled time
+- Historical data retention: Minimum 2 years
+
+### 7.3 Data Quality Standards
+- Data accuracy: 99.5% or higher
+- Data completeness: No more than 1% missing values
+- Timeliness: Real-time data latency < 5 minutes
+
+---
+
+## 8. APPENDICES
+
+### Appendix A: Glossary of Terms
+- **RevPASH:** Revenue Per Available Seat Hour
+- **Occupancy Rate:** Percentage of seats occupied at a given time
+- **Conversion Rate:** Percentage of offers accepted or redeemed
+- **Yield Index:** Ratio of actual revenue to potential revenue
+- **Incremental Revenue:** Additional revenue generated beyond baseline
+
+### Appendix B: Success Metrics
+- 20% increase in off-peak occupancy rates
+- 15% reduction in perishable inventory waste
+- 10% overall revenue lift from micro-offers
+- 95% offer delivery success rate
+
+---
+
+**Document Control**
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2026-02-17 | Business Analysis Team | Initial draft |
+
+**Approval Required From:**
+- [ ] Revenue Management Director
+- [ ] IT Director
+- [ ] Data Analytics Manager
+- [ ] Executive Sponsor
+
+---
