@@ -1,0 +1,343 @@
+# Yield Hunter Analytical Reporting Requirements
+
+This document outlines the essential reporting needs of the Yield Hunter revenue optimization system to monitor venue performance, optimize micro-offer deployment, understand guest behavior, and maximize seating utilization and revenue. These reports support multiple teams including revenue management, marketing, operations, and analytics.
+
+---
+
+# 1. Venue Occupancy Overview Report
+
+To improve utilization of dining capacity, this report provides visibility into how venue seating is being used across time periods. It helps identify underutilized windows and supports proactive operational and marketing actions to improve occupancy and revenue.
+
+### Objective
+
+Provide visibility into real-time and historical venue occupancy levels to support capacity optimization and revenue maximization.
+
+### Business Use Cases
+
+This report allows stakeholders to monitor occupancy trends, detect underutilized service periods, and take timely action through operational adjustments or micro-offer deployment.
+
+### Key Data Points
+
+Venue ID, seating capacity, occupied seats, service period, timestamp, walk-in covers, offer-driven covers.
+
+### Metrics & KPIs
+
+Occupancy Rate, Available Seats, Peak vs Off-Peak Utilization, Low Occupancy Instances.
+
+### Interactivity Expectations
+
+Users should be able to drill down by venue, service period, or day of week and view occupancy trends at hourly granularity.
+
+### Key Calculations
+
+Occupancy Rate = Occupied Seats ÷ Total Seats × 100
+
+### Primary Users
+
+Revenue Managers, Operations Managers.
+
+### Security Access
+
+Access to venue-level operational data should be limited to authorized operations and revenue teams.
+
+### Key Business Questions Answered
+
+Which venues are underutilized?
+When are peak vs off-peak periods?
+Where should offers be deployed?
+
+---
+
+# 2. Micro-Offer Conversion Funnel Report
+
+To improve effectiveness of targeted promotions, this report tracks how micro-offers perform from presentation to redemption.
+
+### Objective
+
+Monitor offer lifecycle performance and conversion efficiency.
+
+### Business Use Cases
+
+Helps identify drop-offs in the offer journey and supports optimization of targeting and discount strategies.
+
+### Key Data Points
+
+Offer ID, presentation timestamp, acceptance timestamp, redemption timestamp, discount tier, party size.
+
+### Metrics & KPIs
+
+Acceptance Rate, Redemption Rate, Expiration Rate.
+
+### Interactivity Expectations
+
+Users should be able to analyze performance by discount tier or venue.
+
+### Key Calculations
+
+Conversion Rate = Redeemed ÷ Presented × 100
+
+### Primary Users
+
+Marketing Teams, Revenue Managers.
+
+### Security Access
+
+Offer-level performance data can be shared across marketing and revenue teams.
+
+### Key Business Questions Answered
+
+Which offers convert best?
+Where do drop-offs occur?
+
+---
+
+# 3. Guest Presence Heatmap Report
+
+To improve targeting accuracy, this report visualizes guest movement and dwell behavior across zones.
+
+### Objective
+
+Understand guest distribution and engagement across locations.
+
+### Business Use Cases
+
+Supports location-based targeting of micro-offers.
+
+### Key Data Points
+
+Zone ID, dwell time, presence pings.
+
+### Metrics & KPIs
+
+Unique Guests, Average Dwell Time.
+
+### Interactivity Expectations
+
+Users should be able to view guest density by time and location.
+
+### Key Calculations
+
+Average Dwell Time = Total Dwell Time ÷ Guests
+
+### Primary Users
+
+Operations, Marketing.
+
+### Security Access
+
+Guest identity must be anonymized.
+
+### Key Business Questions Answered
+
+Where are guests spending time?
+
+---
+
+# 4. Revenue Attribution Report
+
+To evaluate financial impact, this report links offer redemptions to revenue generated.
+
+### Objective
+
+Measure revenue contribution of micro-offers.
+
+### Business Use Cases
+
+Supports ROI evaluation.
+
+### Key Data Points
+
+Revenue, discount value, venue.
+
+### Metrics & KPIs
+
+Net Revenue, Revenue per Redemption.
+
+### Interactivity Expectations
+
+Users should compare performance across venues.
+
+### Key Calculations
+
+Net Revenue = Gross – Discount
+
+### Primary Users
+
+Revenue Managers.
+
+### Security Access
+
+Financial data restricted to authorized users.
+
+### Key Business Questions Answered
+
+Are offers profitable?
+
+---
+
+# 5. Inventory Perishability Report
+
+To reduce lost revenue, this report quantifies unused seating capacity.
+
+### Objective
+
+Track unused capacity risk.
+
+### Business Use Cases
+
+Supports proactive offer deployment.
+
+### Key Data Points
+
+Available seats, time remaining.
+
+### Metrics & KPIs
+
+Unused Capacity Hours, RevPASH.
+
+### Interactivity Expectations
+
+View trends by venue.
+
+### Key Calculations
+
+RevPASH = Revenue ÷ Seat Hours
+
+### Primary Users
+
+Revenue Managers.
+
+### Security Access
+
+Operational access only.
+
+### Key Business Questions Answered
+
+Where is capacity being wasted?
+
+---
+
+# 6. Venue Yield Scorecard Report
+
+To assess monetization effectiveness, this report compares actual revenue to potential.
+
+### Objective
+
+Evaluate venue yield.
+
+### Business Use Cases
+
+Supports performance benchmarking.
+
+### Key Data Points
+
+Covers, revenue.
+
+### Metrics & KPIs
+
+Yield Index.
+
+### Interactivity Expectations
+
+Compare across venues.
+
+### Key Calculations
+
+Yield Index = Actual ÷ Potential
+
+### Primary Users
+
+Executive Leadership.
+
+### Security Access
+
+Strategic access only.
+
+### Key Business Questions Answered
+
+Are venues achieving full potential?
+
+---
+
+# 7. Incremental Revenue Report
+
+To assess system value, this report measures uplift beyond baseline.
+
+### Objective
+
+Quantify true impact of Yield Hunter.
+
+### Business Use Cases
+
+Supports ROI tracking.
+
+### Key Data Points
+
+Baseline revenue, offer revenue.
+
+### Metrics & KPIs
+
+Incremental Revenue.
+
+### Interactivity Expectations
+
+Compare time periods.
+
+### Key Calculations
+
+Incremental = Offer – Baseline
+
+### Primary Users
+
+Finance, Leadership.
+
+### Security Access
+
+Restricted.
+
+### Key Business Questions Answered
+
+What is the true revenue uplift?
+
+---
+
+# 8. Operational Readiness Report
+
+To ensure system reliability, this report tracks data health.
+
+### Objective
+
+Monitor system readiness.
+
+### Business Use Cases
+
+Supports reliability assurance.
+
+### Key Data Points
+
+Latency, delivery success.
+
+### Metrics & KPIs
+
+System Uptime.
+
+### Interactivity Expectations
+
+Trend analysis.
+
+### Key Calculations
+
+Delivery Success Rate = Successful ÷ Total
+
+### Primary Users
+
+IT Teams.
+
+### Security Access
+
+Restricted to technical teams.
+
+### Key Business Questions Answered
+
+Is the system performing reliably?
+
