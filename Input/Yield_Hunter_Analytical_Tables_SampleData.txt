@@ -1,0 +1,255 @@
+guest_profile table:
+
+guest_id     loyalty_tier  age_group  home_country     opt_in_offers  created_ts
+G0001        GOLD          35-44      United States    TRUE           2025-11-01T08:14:00Z
+G0002        SILVER        25-34      United Kingdom   TRUE           2025-11-03T09:22:00Z
+G0003        PLATINUM      55-64      Australia        FALSE          2025-11-05T10:45:00Z
+G0004        STANDARD      45-54      Canada           TRUE           2025-11-08T11:05:00Z
+G0005        GOLD          65+        Germany          TRUE           2025-11-10T14:30:00Z
+G0006        SILVER        18-24      United States    TRUE           2025-11-12T07:55:00Z
+G0007        PLATINUM      35-44      France           FALSE          2025-11-14T16:20:00Z
+G0008        STANDARD      25-34      United States    TRUE           2025-11-15T08:40:00Z
+G0009        GOLD          55-64      New Zealand      TRUE           2025-11-17T13:15:00Z
+G0010        SILVER        45-54      Brazil           FALSE          2025-11-19T09:50:00Z
+
+--------------------------------------------------
+
+dining_reservation table:
+
+reservation_id   guest_id  venue_id        reservation_ts          party_size  service_period  reservation_status  created_ts
+RES00001         G0014     VENUE_CROWN     2026-01-12T17:00:00Z    2           DINNER          CONFIRMED           2026-01-12T10:14:00Z
+RES00002         G0027     VENUE_SABATINI  2026-01-12T18:30:00Z    4           DINNER          CONFIRMED           2026-01-12T09:05:00Z
+RES00003         G0033     VENUE_BISTRO    2026-01-12T12:00:00Z    2           LUNCH           SEATED              2026-01-12T08:30:00Z
+RES00004         G0051     VENUE_CROWN     2026-01-12T19:00:00Z    3           DINNER          NO_SHOW             2026-01-11T21:45:00Z
+RES00005         G0069     VENUE_BISTRO    2026-01-12T20:00:00Z    2           DINNER          CANCELLED           2026-01-12T11:00:00Z
+RES00006         G0083     VENUE_SABATINI  2026-01-12T13:00:00Z    6           LUNCH           COMPLETED           2026-01-12T07:55:00Z
+RES00007         G0092     VENUE_CROWN     2026-01-12T07:30:00Z    2           BREAKFAST       COMPLETED           2026-01-11T22:10:00Z
+RES00008         G0107     VENUE_BISTRO    2026-01-12T18:00:00Z    4           DINNER          CONFIRMED           2026-01-12T12:30:00Z
+RES00009         G0118     VENUE_SABATINI  2026-01-12T19:30:00Z    2           DINNER          CONFIRMED           2026-01-12T10:20:00Z
+RES00010         G0134     VENUE_CROWN     2026-01-12T20:30:00Z    5           DINNER          CONFIRMED           2026-01-12T14:00:00Z
+
+--------------------------------------------------
+
+venue_master table:
+
+venue_id        venue_name                   seating_capacity  venue_type
+VENUE_BISTRO    Bistro Sur La Mer            36                specialty_dining
+VENUE_CROWN     Crown Grill                  48                specialty_dining
+VENUE_SABATINI  Sabatini's Italian Trattoria 44                specialty_dining
+VENUE_MAIN      The Lido Restaurant          220               main_dining
+VENUE_BUFFET    Horizon Court Buffet         180               buffet
+VENUE_VINES     Vines Wine Bar               40                bar_lounge
+VENUE_CAFE      International Cafe           30                cafe
+VENUE_SALTY     Salty Dog Gastropub          60                bar_lounge
+VENUE_OUTRIGGER Outrigger Poolside Bar       50                bar_lounge
+VENUE_BAYOU     Bayou Cafe                   36                specialty_dining
+
+--------------------------------------------------
+
+seating_inventory_snapshot table:
+
+snapshot_id   venue_id        snapshot_ts              occupied_seats  available_seats
+SNP0001       VENUE_CROWN     2026-01-12T11:00:00Z     26              22
+SNP0002       VENUE_BISTRO    2026-01-12T11:00:00Z     22              14
+SNP0003       VENUE_SABATINI  2026-01-12T11:00:00Z     31              13
+SNP0004       VENUE_CROWN     2026-01-12T12:00:00Z     35              13
+SNP0005       VENUE_BISTRO    2026-01-12T12:00:00Z     19              17
+SNP0006       VENUE_SABATINI  2026-01-12T12:00:00Z     28              16
+SNP0007       VENUE_CROWN     2026-01-12T16:00:00Z     14              34
+SNP0008       VENUE_BISTRO    2026-01-12T16:00:00Z     11              25
+SNP0009       VENUE_SABATINI  2026-01-12T16:00:00Z     12              32
+SNP0010       VENUE_CROWN     2026-01-12T17:00:00Z     29              19
+
+--------------------------------------------------
+
+pos_transaction table:
+
+transaction_id  guest_id  venue_id        transaction_ts           bill_amount  discount_amount  net_amount  covers  offer_id
+TXN00001        G0014     VENUE_CROWN     2026-01-12T19:42:00Z     178.50       26.78            151.72      2       OFR00012
+TXN00002        G0033     VENUE_BISTRO    2026-01-12T13:15:00Z     95.20        0.00             95.20       2       NULL
+TXN00003        G0027     VENUE_SABATINI  2026-01-12T20:05:00Z     312.00       46.80            265.20      4       OFR00031
+TXN00004        G0092     VENUE_CROWN     2026-01-12T08:55:00Z     68.00        0.00             68.00       2       NULL
+TXN00005        G0083     VENUE_SABATINI  2026-01-12T14:22:00Z     220.80       44.16            176.64      6       OFR00048
+TXN00006        G0151     VENUE_BISTRO    2026-01-12T18:48:00Z     143.60       21.54            122.06      2       OFR00067
+TXN00007        G0162     VENUE_CROWN     2026-01-12T20:10:00Z     89.50        0.00             89.50       1       NULL
+TXN00008        G0178     VENUE_SABATINI  2026-01-12T19:30:00Z     254.40       38.16            216.24      4       OFR00083
+TXN00009        G0191     VENUE_BISTRO    2026-01-12T17:55:00Z     108.75       16.31            92.44       2       OFR00094
+TXN00010        G0206     VENUE_CROWN     2026-01-12T21:05:00Z     196.00       29.40            166.60      3       OFR00105
+
+--------------------------------------------------
+
+micro_offer table:
+
+offer_id   guest_id  venue_id        discount_pct  offer_type        fired_ts                 ttl_minutes
+OFR00012   G0014     VENUE_CROWN     15.00         PROXIMITY         2026-01-12T17:22:00Z     30
+OFR00031   G0027     VENUE_SABATINI  15.00         LOW_OCCUPANCY     2026-01-12T16:30:00Z     45
+OFR00048   G0083     VENUE_SABATINI  20.00         LOYALTY_REWARD    2026-01-12T13:05:00Z     60
+OFR00067   G0151     VENUE_BISTRO    15.00         PROXIMITY         2026-01-12T16:30:00Z     30
+OFR00083   G0178     VENUE_SABATINI  15.00         LOW_OCCUPANCY     2026-01-12T16:30:00Z     45
+OFR00094   G0191     VENUE_BISTRO    15.00         PROXIMITY         2026-01-12T16:30:00Z     30
+OFR00105   G0206     VENUE_CROWN     15.00         WINBACK           2026-01-12T19:10:00Z     20
+OFR00121   G0212     VENUE_BISTRO    10.00         LOW_OCCUPANCY     2026-01-12T16:30:00Z     45
+OFR00138   G0225     VENUE_CROWN     25.00         LOYALTY_REWARD    2026-01-12T16:30:00Z     60
+OFR00147   G0239     VENUE_SABATINI  20.00         PROXIMITY         2026-01-12T16:30:00Z     30
+
+--------------------------------------------------
+
+offer_response table:
+
+response_id  offer_id   response_status  response_ts
+RSP00001     OFR00012   ACCEPTED         2026-01-12T17:35:00Z
+RSP00002     OFR00031   ACCEPTED         2026-01-12T16:48:00Z
+RSP00003     OFR00048   ACCEPTED         2026-01-12T13:20:00Z
+RSP00004     OFR00067   ACCEPTED         2026-01-12T16:44:00Z
+RSP00005     OFR00083   ACCEPTED         2026-01-12T16:52:00Z
+RSP00006     OFR00094   ACCEPTED         2026-01-12T16:41:00Z
+RSP00007     OFR00105   ACCEPTED         2026-01-12T19:22:00Z
+RSP00008     OFR00121   EXPIRED          2026-01-12T17:15:00Z
+RSP00009     OFR00138   REJECTED         2026-01-12T16:55:00Z
+RSP00010     OFR00147   EXPIRED          2026-01-12T17:00:00Z
+
+--------------------------------------------------
+
+offer_redemption table:
+
+redemption_id  offer_id   redeemed_ts              revenue_amount
+RDM00001       OFR00012   2026-01-12T19:42:00Z     151.72
+RDM00002       OFR00031   2026-01-12T20:05:00Z     265.20
+RDM00003       OFR00048   2026-01-12T14:22:00Z     176.64
+RDM00004       OFR00067   2026-01-12T18:48:00Z     122.06
+RDM00005       OFR00083   2026-01-12T19:30:00Z     216.24
+RDM00006       OFR00094   2026-01-12T17:55:00Z     92.44
+RDM00007       OFR00105   2026-01-12T21:05:00Z     166.60
+RDM00008       OFR00121   NULL                     0.00
+RDM00009       OFR00138   NULL                     0.00
+RDM00010       OFR00147   NULL                     0.00
+
+--------------------------------------------------
+
+zone_master table:
+
+zone_id            zone_name                    zone_type
+ZONE_DECK15_JAC    Deck 15 Jacuzzi Area         pool
+ZONE_DECK15_POOL   Deck 15 Pool A               pool
+ZONE_DECK16_SUN    Deck 16 Sundeck              deck
+ZONE_PROM_AFT      Promenade Deck Aft           promenade
+ZONE_PROM_FWD      Promenade Deck Forward       promenade
+ZONE_SPA_RECEP     Spa Reception Lobby          spa
+ZONE_FITNESS_CTR   Fitness Centre               fitness
+ZONE_CASINO_MAIN   Casino Main Floor            casino
+ZONE_ATRIUM_LOBBY  Atrium Lobby                 lobby
+ZONE_POOL_FWD      Forward Pool Deck            pool
+
+--------------------------------------------------
+
+guest_presence_event table:
+
+event_id      guest_id  zone_id            event_ts                 signal_conf
+EVT000001     G0014     ZONE_DECK15_JAC    2026-01-12T16:58:00Z     0.97
+EVT000002     G0027     ZONE_DECK16_SUN    2026-01-12T16:22:00Z     0.93
+EVT000003     G0033     ZONE_PROM_AFT      2026-01-12T11:14:00Z     0.86
+EVT000004     G0051     ZONE_DECK15_POOL   2026-01-12T14:45:00Z     0.95
+EVT000005     G0069     ZONE_DECK16_SUN    2026-01-12T15:30:00Z     0.99
+EVT000006     G0083     ZONE_PROM_AFT      2026-01-12T12:40:00Z     0.82
+EVT000007     G0092     ZONE_CASINO_MAIN   2026-01-12T16:10:00Z     0.88
+EVT000008     G0107     ZONE_DECK15_JAC    2026-01-12T16:30:00Z     0.96
+EVT000009     G0118     ZONE_PROM_FWD      2026-01-12T17:05:00Z     0.91
+EVT000010     G0134     ZONE_POOL_FWD      2026-01-12T15:55:00Z     0.79
+
+--------------------------------------------------
+
+guest_journey table:
+
+journey_id   guest_id  origin_zone        destination_venue  journey_start_ts         journey_end_ts
+JRN000001    G0014     ZONE_DECK15_JAC    VENUE_CROWN        2026-01-12T17:05:00Z     2026-01-12T17:22:00Z
+JRN000002    G0027     ZONE_DECK16_SUN    VENUE_SABATINI     2026-01-12T16:28:00Z     2026-01-12T16:45:00Z
+JRN000003    G0083     ZONE_PROM_AFT      VENUE_SABATINI     2026-01-12T12:48:00Z     2026-01-12T13:02:00Z
+JRN000004    G0107     ZONE_DECK15_JAC    VENUE_BISTRO       2026-01-12T16:38:00Z     2026-01-12T16:52:00Z
+JRN000005    G0151     ZONE_DECK15_POOL   VENUE_BISTRO       2026-01-12T16:34:00Z     2026-01-12T16:48:00Z
+JRN000006    G0191     ZONE_DECK16_SUN    VENUE_BISTRO       2026-01-12T16:32:00Z     2026-01-12T16:44:00Z
+JRN000007    G0162     ZONE_PROM_FWD      VENUE_CROWN        2026-01-12T19:42:00Z     2026-01-12T19:58:00Z
+JRN000008    G0225     ZONE_POOL_FWD      VENUE_CROWN        2026-01-12T16:18:00Z     2026-01-12T16:38:00Z
+JRN000009    G0206     ZONE_CASINO_MAIN   VENUE_CROWN        2026-01-12T19:05:00Z     2026-01-12T19:18:00Z
+JRN000010    G0239     ZONE_PROM_AFT      VENUE_SABATINI     2026-01-12T16:20:00Z     2026-01-12T16:35:00Z
+
+--------------------------------------------------
+
+venue_queue_snapshot table:
+
+queue_id     venue_id        snapshot_ts              queue_size  avg_wait_mins
+QUE000001    VENUE_CROWN     2026-01-12T16:00:00Z     0           0
+QUE000002    VENUE_BISTRO    2026-01-12T16:00:00Z     0           0
+QUE000003    VENUE_SABATINI  2026-01-12T16:00:00Z     0           0
+QUE000004    VENUE_CROWN     2026-01-12T17:00:00Z     3           8
+QUE000005    VENUE_BISTRO    2026-01-12T17:00:00Z     2           5
+QUE000006    VENUE_SABATINI  2026-01-12T17:00:00Z     4           10
+QUE000007    VENUE_CROWN     2026-01-12T18:00:00Z     7           18
+QUE000008    VENUE_BISTRO    2026-01-12T18:00:00Z     5           12
+QUE000009    VENUE_SABATINI  2026-01-12T18:00:00Z     6           15
+QUE000010    VENUE_CROWN     2026-01-12T19:00:00Z     2           5
+
+--------------------------------------------------
+
+ab_test_assignment table:
+
+assignment_id   guest_id  test_name                        variant   assigned_ts
+ABT000001       G0001     OFFER_DISCOUNT_THRESHOLD_Q1_26   TEST      2026-01-01T00:00:00Z
+ABT000002       G0002     OFFER_DISCOUNT_THRESHOLD_Q1_26   CONTROL   2026-01-01T00:00:00Z
+ABT000003       G0003     OFFER_DISCOUNT_THRESHOLD_Q1_26   CONTROL   2026-01-01T00:00:00Z
+ABT000004       G0004     OFFER_DISCOUNT_THRESHOLD_Q1_26   TEST      2026-01-01T00:00:00Z
+ABT000005       G0005     OFFER_DISCOUNT_THRESHOLD_Q1_26   TEST      2026-01-01T00:00:00Z
+ABT000006       G0006     PROXIMITY_TRIGGER_RADIUS_Q1_26   CONTROL   2026-01-01T00:00:00Z
+ABT000007       G0007     PROXIMITY_TRIGGER_RADIUS_Q1_26   TEST      2026-01-01T00:00:00Z
+ABT000008       G0008     PROXIMITY_TRIGGER_RADIUS_Q1_26   TEST      2026-01-01T00:00:00Z
+ABT000009       G0009     PROXIMITY_TRIGGER_RADIUS_Q1_26   CONTROL   2026-01-01T00:00:00Z
+ABT000010       G0010     PROXIMITY_TRIGGER_RADIUS_Q1_26   TEST      2026-01-01T00:00:00Z
+
+--------------------------------------------------
+
+baseline_revenue table:
+
+baseline_id  venue_id        service_period  baseline_date  baseline_revenue  baseline_covers
+BAS000001    VENUE_CROWN     DINNER          2026-01-12     2450.00           96
+BAS000002    VENUE_BISTRO    DINNER          2026-01-12     1980.00           72
+BAS000003    VENUE_SABATINI  DINNER          2026-01-12     2210.00           88
+BAS000004    VENUE_CROWN     LUNCH           2026-01-12     1120.00           44
+BAS000005    VENUE_BISTRO    LUNCH           2026-01-12     860.00            32
+BAS000006    VENUE_SABATINI  LUNCH           2026-01-12     975.00            38
+BAS000007    VENUE_CROWN     BREAKFAST       2026-01-12     540.00            22
+BAS000008    VENUE_BISTRO    BREAKFAST       2026-01-12     410.00            16
+BAS000009    VENUE_SABATINI  BREAKFAST       2026-01-12     480.00            19
+BAS000010    VENUE_MAIN      DINNER          2026-01-12     8800.00           440
+
+--------------------------------------------------
+
+rtls_signal_quality table:
+
+signal_id    zone_id            snapshot_ts              avg_confidence
+SIG000001    ZONE_DECK15_JAC    2026-01-12T11:00:00Z     0.96
+SIG000002    ZONE_DECK15_POOL   2026-01-12T11:00:00Z     0.94
+SIG000003    ZONE_DECK16_SUN    2026-01-12T11:00:00Z     0.97
+SIG000004    ZONE_PROM_AFT      2026-01-12T11:00:00Z     0.88
+SIG000005    ZONE_PROM_FWD      2026-01-12T11:00:00Z     0.85
+SIG000006    ZONE_DECK15_JAC    2026-01-12T12:00:00Z     0.95
+SIG000007    ZONE_DECK15_POOL   2026-01-12T12:00:00Z     0.93
+SIG000008    ZONE_DECK16_SUN    2026-01-12T12:00:00Z     0.98
+SIG000009    ZONE_PROM_AFT      2026-01-12T12:00:00Z     0.91
+SIG000010    ZONE_POOL_FWD      2026-01-12T12:00:00Z     0.87
+
+--------------------------------------------------
+
+offer_delivery_log table:
+
+delivery_id   offer_id   delivery_status  delivery_ts
+DLV000001     OFR00012   DELIVERED        2026-01-12T17:22:00Z
+DLV000002     OFR00031   DELIVERED        2026-01-12T16:30:00Z
+DLV000003     OFR00048   DELIVERED        2026-01-12T13:05:00Z
+DLV000004     OFR00067   DELIVERED        2026-01-12T16:30:00Z
+DLV000005     OFR00083   DELIVERED        2026-01-12T16:30:00Z
+DLV000006     OFR00094   DELIVERED        2026-01-12T16:30:00Z
+DLV000007     OFR00105   DELIVERED        2026-01-12T19:10:00Z
+DLV000008     OFR00121   DELIVERED        2026-01-12T16:30:00Z
+DLV000009     OFR00138   FAILED           2026-01-12T16:30:00Z
+DLV000010     OFR00147   DELIVERED        2026-01-12T16:30:00Z
+
+--------------------------------------------------
